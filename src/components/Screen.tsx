@@ -12,10 +12,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { space, useColors } from '@/theme';
+import { useTabBarSpace } from './TabBar';
 
 /**
- * Scrollable page body with pull-to-refresh. Headers come from the navigator,
- * so only the bottom inset (home indicator) is padded here.
+ * Scrollable page body with pull-to-refresh, on the grouped background. Headers come
+ * from the navigator; on iOS the scroll view adjusts its insets itself so large titles
+ * collapse into the bar as it scrolls.
  */
 export function Screen({
   children,
@@ -25,6 +27,7 @@ export function Screen({
   contentStyle,
   keyboard,
   scroll = true,
+  insetAdjust = true,
 }: {
   children: ReactNode;
   refreshing?: boolean;
@@ -35,21 +38,25 @@ export function Screen({
   /** Lift content above the keyboard (forms). */
   keyboard?: boolean;
   scroll?: boolean;
+  /** iOS automatic content insets (off inside sheets). */
+  insetAdjust?: boolean;
 }) {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const tabSpace = useTabBarSpace();
+  const autoInsets = Platform.OS === 'ios' && insetAdjust;
+  // With automatic insets iOS already keeps content clear of the home indicator.
+  const bottom = footer ? space.lg : tabSpace ? tabSpace + space.lg : (autoInsets ? 0 : insets.bottom) + space.xl;
   const body = scroll ? (
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={[
-        styles.content,
-        { paddingBottom: footer ? space.lg : insets.bottom + space.xl },
-        contentStyle,
-      ]}
+      contentInsetAdjustmentBehavior={autoInsets ? 'automatic' : 'never'}
+      contentContainerStyle={[styles.content, { paddingBottom: bottom }, contentStyle]}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
       refreshControl={
         onRefresh ? (
-          <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.accent} colors={[c.accent]} />
+          <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.muted} colors={[c.accent]} />
         ) : undefined
       }>
       {children}
@@ -65,7 +72,7 @@ export function Screen({
         <View
           style={[
             styles.footer,
-            { paddingBottom: insets.bottom + space.md, backgroundColor: c.surface, borderTopColor: c.line },
+            { paddingBottom: insets.bottom + space.sm, backgroundColor: c.bar, borderTopColor: c.separator },
           ]}>
           {footer}
         </View>
@@ -91,7 +98,7 @@ export function Screen({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { padding: space.lg, flexGrow: 1 },
+  content: { paddingHorizontal: space.lg, paddingTop: space.sm, flexGrow: 1 },
   footer: {
     paddingHorizontal: space.lg,
     paddingTop: space.md,

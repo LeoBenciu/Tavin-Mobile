@@ -210,7 +210,7 @@ function NirEditor({ response, onBack }: { response: NirResponse; onBack: () => 
         </View>
       ) : null}
 
-      <SectionTitle title={t('Document', 'Document')} />
+      <SectionTitle size="small" title={t('Document', 'Document')} />
       <Card>
         <View style={styles.twoCol}>
           <View style={{ flex: 1 }}>
@@ -243,7 +243,7 @@ function NirEditor({ response, onBack }: { response: NirResponse; onBack: () => 
         ) : null}
       </Card>
 
-      <SectionTitle title={t(`Produse (${lines.length})`, `Items (${lines.length})`)} />
+      <SectionTitle size="small" title={t(`Produse (${lines.length})`, `Items (${lines.length})`)} />
       {lines.map((line, idx) => {
         const type = lineArticleType(line);
         const service = isServiceType(type);
@@ -340,7 +340,7 @@ function NirEditor({ response, onBack }: { response: NirResponse; onBack: () => 
         </View>
       </Card>
 
-      <SectionTitle title={t('Comisia de recepție', 'Receiving committee')} />
+      <SectionTitle size="small" title={t('Comisia de recepție', 'Receiving committee')} />
       <Card>
         <Field
           label={t('Membru 1', 'Member 1')}

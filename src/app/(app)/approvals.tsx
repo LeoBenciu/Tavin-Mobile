@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -12,12 +13,14 @@ import { errorMessage } from '@/api/baseQuery';
 import type { ConfirmationAction, InvoiceConfirmation } from '@/api/types';
 import { Screen } from '@/components/Screen';
 import { ActionSheet, PickerSheet, Sheet } from '@/components/Sheet';
-import { Button, Card, EmptyState, ErrorState, Field, Loading, Pill, SelectField, Txt } from '@/components/ui';
+import { splitMoney } from '@/components/charts';
+import { Amount, Button, Card, EmptyState, ErrorState, Field, Loading, Pill, SelectField, Txt } from '@/components/ui';
 import { useT, type Translate } from '@/i18n';
 import { notify } from '@/lib/confirm';
 import { openUrl } from '@/lib/files';
 import { formatDate, formatMoney } from '@/lib/format';
-import { space } from '@/theme';
+import { haptic } from '@/lib/haptics';
+import { radius, space, useColors } from '@/theme';
 
 function riskText(t: Translate, code: string): string {
   switch (code) {
@@ -40,6 +43,7 @@ function riskText(t: Translate, code: string): string {
 const NEEDS_NOTE: ConfirmationAction[] = ['REJECT', 'WRONGLY_ISSUED', 'CLARIFY'];
 
 export default function ApprovalsScreen() {
+  const c = useColors();
   const t = useT();
   const { data, isLoading, isFetching, error, refetch } = useGetApprovalsQuery();
   const { data: costCenters = [] } = useGetCostCentersQuery();
@@ -62,6 +66,7 @@ export default function ApprovalsScreen() {
         costCenterId: costCenterByItem[item.id] ?? null,
       }).unwrap();
       if (res.alreadyResolved) notify(t('Factura era deja rezolvată.', 'This invoice was already handled.'));
+      else haptic.success();
       setNoteFor(null);
       setNote('');
     } catch (e) {
@@ -106,7 +111,7 @@ export default function ApprovalsScreen() {
         <ErrorState message={errorMessage(error)} onRetry={refetch} />
       ) : items.length === 0 ? (
         <EmptyState
-          icon="shield-checkmark-outline"
+          icon="shield-checkmark"
           title={t('Nimic de confirmat', 'Nothing to confirm')}
           message={t(
             'Când primești în SPV o factură neobișnuită (furnizor nou, IBAN schimbat), te întrebăm aici înainte să fie plătită sau înregistrată.',
@@ -115,7 +120,7 @@ export default function ApprovalsScreen() {
         />
       ) : (
         <>
-          <Txt tone="soft" style={{ marginBottom: space.md }}>
+          <Txt variant="small" tone="muted" style={styles.intro}>
             {t(
               'Confirmă că recunoști aceste facturi. Până răspunzi, contabilul nu le înregistrează.',
               'Confirm you recognise these invoices. Your accountant won’t book them until you answer.',
@@ -124,11 +129,14 @@ export default function ApprovalsScreen() {
           {items.map((item) => {
             const reasons = Array.isArray(item.riskReasons) ? item.riskReasons : [];
             const cc = costCenters.find((x) => x.id === costCenterByItem[item.id]);
+            const [amount, currency] = splitMoney(formatMoney(item.totalAmount, item.currency));
             return (
               <Card key={item.id} style={styles.card}>
                 <View style={styles.top}>
                   <View style={{ flex: 1 }}>
-                    <Txt variant="title">{item.vendorName}</Txt>
+                    <Txt variant="title" numberOfLines={2}>
+                      {item.vendorName}
+                    </Txt>
                     <Txt variant="small" tone="muted">
                       CUI {item.vendorEin}
                       {item.documentNumber ? ` · ${item.documentNumber}` : ''}
@@ -146,23 +154,25 @@ export default function ApprovalsScreen() {
                     tone={item.riskLevel === 'HIGH' ? 'danger' : item.riskLevel === 'MEDIUM' ? 'warn' : 'neutral'}
                   />
                 </View>
-                <Txt variant="heading" style={{ marginTop: space.md }}>
-                  {formatMoney(item.totalAmount, item.currency)}
-                </Txt>
+                <Amount value={amount} currency={currency} size="display" style={{ marginTop: space.md }} />
                 {item.paymentIban ? (
-                  <View style={styles.iban}>
-                    <Txt variant="small" tone="soft" style={{ flexShrink: 1 }}>
-                      IBAN {item.paymentIban}
+                  <View style={[styles.iban, { backgroundColor: c.fill }]}>
+                    <Ionicons name="card-outline" size={16} color={c.muted} />
+                    <Txt variant="small" tone="soft" style={{ flexShrink: 1 }} tabular>
+                      {item.paymentIban}
                     </Txt>
                     {item.ibanIsNew ? <Pill label={t('IBAN NOU', 'NEW IBAN')} tone="danger" /> : null}
                   </View>
                 ) : null}
                 {reasons.length > 0 ? (
-                  <View style={styles.reasons}>
+                  <View style={[styles.reasons, { backgroundColor: c.warnSoft }]}>
                     {reasons.map((r) => (
-                      <Txt key={r} variant="small" tone="warn">
-                        ⚠︎ {riskText(t, r)}
-                      </Txt>
+                      <View key={r} style={styles.reason}>
+                        <Ionicons name="warning" size={15} color={c.warn} style={{ marginTop: 1 }} />
+                        <Txt variant="small" tone="warn" style={{ flex: 1 }}>
+                          {riskText(t, r)}
+                        </Txt>
+                      </View>
                     ))}
                   </View>
                 ) : null}
@@ -175,15 +185,6 @@ export default function ApprovalsScreen() {
                       onPress={() => setCostCenterFor(item.id)}
                     />
                   </View>
-                ) : null}
-                {item.pendingUploadId || item.documentId ? (
-                  <Button
-                    title={t('Vezi factura', 'View invoice')}
-                    icon="eye-outline"
-                    variant="ghost"
-                    size="sm"
-                    onPress={() => viewInvoice(item)}
-                  />
                 ) : null}
                 <View style={styles.actions}>
                   <Button
@@ -201,12 +202,24 @@ export default function ApprovalsScreen() {
                     style={{ flex: 1.4 }}
                   />
                 </View>
-                <Button
-                  title={t('Alte răspunsuri', 'Other answers')}
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => setMoreFor(item)}
-                />
+                <View style={styles.secondary}>
+                  {item.pendingUploadId || item.documentId ? (
+                    <Button
+                      title={t('Vezi factura', 'View invoice')}
+                      icon="eye-outline"
+                      variant="ghost"
+                      size="sm"
+                      onPress={() => viewInvoice(item)}
+                    />
+                  ) : null}
+                  <Button
+                    title={t('Alte răspunsuri', 'Other answers')}
+                    icon="ellipsis-horizontal"
+                    variant="ghost"
+                    size="sm"
+                    onPress={() => setMoreFor(item)}
+                  />
+                </View>
               </Card>
             );
           })}
@@ -275,9 +288,21 @@ export default function ApprovalsScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: { marginBottom: space.md },
+  intro: { marginBottom: space.lg, paddingHorizontal: 2 },
+  card: { marginBottom: space.lg },
   top: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
-  iban: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm, flexWrap: 'wrap' },
-  reasons: { marginTop: space.sm, gap: 4 },
-  actions: { flexDirection: 'row', gap: space.md, marginTop: space.md },
+  iban: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    marginTop: space.md,
+    flexWrap: 'wrap',
+    paddingHorizontal: space.md,
+    paddingVertical: 10,
+    borderRadius: radius.sm + 2,
+  },
+  reasons: { marginTop: space.sm, gap: 6, padding: space.md, borderRadius: radius.sm + 2 },
+  reason: { flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' },
+  actions: { flexDirection: 'row', gap: space.md, marginTop: space.lg },
+  secondary: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap', marginTop: space.xs },
 });

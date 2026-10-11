@@ -76,10 +76,10 @@ export default function ReportsScreen() {
   return (
     <Screen refreshing={active.isFetching && !active.isLoading} onRefresh={refresh}>
       <Card>
-        <Txt variant="label" tone="muted">
-          {t('Venituri facturate pe lună', 'Invoiced revenue per month')}
+        <Txt variant="title">{t('Venituri facturate', 'Invoiced revenue')}</Txt>
+        <Txt variant="footnote" tone="muted" style={{ marginBottom: space.md }}>
+          {t('Pe lună, anul acesta · atinge o coloană', 'Per month this year · tap a column')}
         </Txt>
-        <View style={{ height: space.sm }} />
         {overview.isLoading ? (
           <Loading />
         ) : (
@@ -106,7 +106,7 @@ export default function ReportsScreen() {
           <Chip key={k} label={label} active={periodKey === k} onPress={() => setPeriodKey(k)} />
         ))}
       </ScrollView>
-      <Txt variant="caption" tone="muted" style={{ marginBottom: space.sm }}>
+      <Txt variant="footnote" tone="muted" style={{ marginBottom: space.md, paddingHorizontal: 2 }}>
         {formatDate(period.startDate)} – {formatDate(period.endDate)} · {t('din contabilitate', 'from the books')}
       </Txt>
 
@@ -190,7 +190,7 @@ export default function ReportsScreen() {
             bold
             tone={vat.data.direction === 'payable' ? 'warn' : 'good'}
           />
-          <Txt variant="caption" tone="muted" style={{ marginTop: space.sm }}>
+          <Txt variant="footnote" tone="muted" style={{ marginTop: space.md }}>
             {t(
               'Aceeași sursă ca decontul D300 (conturile 4427 / 4426).',
               'Same source as the D300 return (accounts 4427 / 4426).',
@@ -237,11 +237,11 @@ function Line({
   tone?: 'good' | 'danger' | 'warn';
 }) {
   return (
-    <View style={styles.line}>
-      <Txt tone={bold ? 'default' : 'soft'} weight={bold ? '700' : undefined}>
+    <View style={[styles.line, bold && styles.lineBold]}>
+      <Txt tone={bold ? 'default' : 'soft'} weight={bold ? '700' : undefined} variant={bold ? 'title' : 'body'}>
         {label}
       </Txt>
-      <Txt weight={bold ? '700' : '600'} tone={tone}>
+      <Txt weight="700" tone={tone} tabular variant={bold ? 'title' : 'body'}>
         {value}
       </Txt>
     </View>
@@ -250,7 +250,8 @@ function Line({
 
 const styles = StyleSheet.create({
   // A horizontal ScrollView must not grow vertically inside the page column.
-  chipScroll: { flexGrow: 0 },
-  chips: { gap: space.sm, paddingVertical: space.md },
-  line: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
+  chipScroll: { flexGrow: 0, marginHorizontal: -space.lg },
+  chips: { gap: space.sm, paddingTop: space.lg, paddingBottom: space.sm, paddingHorizontal: space.lg },
+  line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 7 },
+  lineBold: { paddingTop: space.md },
 });

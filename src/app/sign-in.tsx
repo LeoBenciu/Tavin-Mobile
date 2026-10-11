@@ -1,12 +1,15 @@
+import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SignInError, useSession } from '@/auth/session';
+import { GlassChip, LogoMark, NavyBackdrop } from '@/components/Hero';
 import { Sheet } from '@/components/Sheet';
-import { Banner, Button, Field, Segmented, Txt } from '@/components/ui';
-import { useLanguage, useT } from '@/i18n';
-import { radius, space, useColors } from '@/theme';
+import { Banner, Button, Field, Txt } from '@/components/ui';
+import { useLanguage, useT, type Language } from '@/i18n';
+import { haptic } from '@/lib/haptics';
+import { navy, radius, space, useColors } from '@/theme';
 
 export default function SignInScreen() {
   const c = useColors();
@@ -25,6 +28,7 @@ export default function SignInScreen() {
   const submit = async () => {
     if (!email.trim() || !password) {
       setError(t('Completează emailul și parola.', 'Enter your email and password.'));
+      haptic.warning();
       return;
     }
     setBusy(true);
@@ -33,46 +37,42 @@ export default function SignInScreen() {
       await signIn(email, password);
     } catch (e) {
       setError(e instanceof SignInError ? e.message : t('Autentificarea a eșuat.', 'Sign-in failed.'));
+      haptic.warning();
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.background }}>
+    <NavyBackdrop style={{ flex: 1 }}>
+      <StatusBar style="light" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingTop: insets.top + space.xl, paddingBottom: insets.bottom + space.xl },
+            { paddingTop: insets.top + space.xxl + space.lg, paddingBottom: insets.bottom + space.xl },
           ]}
           keyboardShouldPersistTaps="handled">
-          <View style={[styles.langRow, { top: insets.top + space.sm, right: space.xl }]}>
-            <View style={{ width: 120 }}>
-              <Segmented
-                value={language}
-                onChange={setLanguage}
-                options={[
-                  { value: 'ro', label: 'RO' },
-                  { value: 'en', label: 'EN' },
-                ]}
-              />
-            </View>
+          <View style={[styles.langRow, { top: insets.top + space.sm }]}>
+            <LanguageToggle value={language} onChange={setLanguage} />
           </View>
 
           <View style={styles.brand}>
-            <View style={[styles.logo, { backgroundColor: c.accent }]}>
-              <Txt style={styles.logoText}>T</Txt>
-            </View>
-            <Txt variant="display" style={styles.center}>
-              Tavin
-            </Txt>
-            <Txt tone="muted" style={[styles.center, { marginTop: space.xs }]}>
+            <LogoMark size={68} />
+            <Text style={styles.title}>Tavin</Text>
+            <Text style={styles.tagline}>
               {t('Firma ta și contabilul tău, în buzunar.', 'Your business and your accountant, in your pocket.')}
-            </Txt>
+            </Text>
+            <View style={{ marginTop: space.lg, alignSelf: 'center' }}>
+              <GlassChip label={t('Contabil autorizat CECCAR, dedicat', 'A dedicated CECCAR-certified accountant')} />
+            </View>
           </View>
 
-          <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.line }]}>
+          <View
+            style={[styles.card, { backgroundColor: c.surface, boxShadow: '0px 40px 80px -40px rgba(0, 0, 0, 0.8)' }]}>
+            <Txt variant="heading" style={{ marginBottom: space.lg }}>
+              {t('Intră în cont', 'Sign in')}
+            </Txt>
             <Field
               label={t('Email', 'Email')}
               value={email}
@@ -103,13 +103,12 @@ export default function SignInScreen() {
                 </Pressable>
               }
             />
-            {error ? <Banner tone="danger" icon="alert-circle" title={error} /> : null}
-            <Button
-              title={t('Intră în cont', 'Sign in')}
-              onPress={submit}
-              loading={busy}
-              style={{ marginTop: space.md }}
-            />
+            {error ? (
+              <View style={{ marginBottom: space.md }}>
+                <Banner tone="danger" icon="alert" title={error} />
+              </View>
+            ) : null}
+            <Button title={t('Intră în cont', 'Sign in')} icon="arrow-forward" onPress={submit} loading={busy} />
             <Pressable onPress={() => setHelpOpen(true)} style={styles.help} hitSlop={8}>
               <Txt variant="small" tone="accent" weight="600">
                 {t('Nu ai cont sau ai uitat parola?', 'No account, or forgot your password?')}
@@ -136,6 +135,30 @@ export default function SignInScreen() {
           <Button title={t('Am înțeles', 'Got it')} variant="secondary" onPress={() => setHelpOpen(false)} />
         </View>
       </Sheet>
+    </NavyBackdrop>
+  );
+}
+
+/** RO / EN switch in glass, as on the landing page's nav (.lp-lang). */
+function LanguageToggle({ value, onChange }: { value: Language; onChange: (l: Language) => void }) {
+  return (
+    <View style={styles.lang}>
+      {(['ro', 'en'] as const).map((l) => {
+        const on = value === l;
+        return (
+          <Pressable
+            key={l}
+            onPress={() => {
+              if (!on) haptic.selection();
+              onChange(l);
+            }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+            style={[styles.langItem, on && styles.langItemOn]}>
+            <Text style={[styles.langText, on && { opacity: 1 }]}>{l.toUpperCase()}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -143,25 +166,35 @@ export default function SignInScreen() {
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
-    paddingHorizontal: space.xl,
+    paddingHorizontal: space.lg + 4,
     justifyContent: 'center',
     maxWidth: 480,
     width: '100%',
     alignSelf: 'center',
   },
-  langRow: { position: 'absolute' },
-  brand: { alignItems: 'center', marginBottom: space.xl },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: space.lg,
+  langRow: { position: 'absolute', right: space.lg + 4 },
+  lang: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: navy.glassLine,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
   },
-  logoText: { color: '#fff', fontSize: 34, fontWeight: '800' },
-  center: { textAlign: 'center' },
-  card: { borderRadius: radius.lg, borderWidth: StyleSheet.hairlineWidth, padding: space.lg },
+  langItem: { minWidth: 40, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  langItemOn: { backgroundColor: navy.glassStrong },
+  langText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700', letterSpacing: 0.6, opacity: 0.62 },
+  brand: { alignItems: 'center', marginBottom: space.xxl },
+  title: {
+    marginTop: space.lg + 4,
+    color: '#FFFFFF',
+    fontSize: 40,
+    fontWeight: '700',
+    letterSpacing: -1.4,
+    textAlign: 'center',
+  },
+  tagline: { marginTop: space.xs, color: navy.onNavySoft, fontSize: 16, lineHeight: 22, textAlign: 'center' },
+  card: { borderRadius: radius.xl, padding: space.xl - 2 },
   eye: { paddingHorizontal: space.md },
-  help: { alignSelf: 'center', marginTop: space.lg },
+  help: { alignSelf: 'center', marginTop: space.lg + 2, paddingVertical: 2 },
 });

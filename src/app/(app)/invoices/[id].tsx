@@ -21,7 +21,21 @@ import {
 import { errorMessage } from '@/api/baseQuery';
 import { Screen } from '@/components/Screen';
 import { ActionSheet, Sheet, type SheetAction } from '@/components/Sheet';
-import { Banner, Button, Card, Divider, ErrorState, Field, Loading, Pill, SectionTitle, Txt } from '@/components/ui';
+import { splitMoney } from '@/components/charts';
+import {
+  ActionTile,
+  Amount,
+  Banner,
+  Button,
+  Card,
+  Divider,
+  ErrorState,
+  Field,
+  Loading,
+  Pill,
+  SectionTitle,
+  Txt,
+} from '@/components/ui';
 import { useT } from '@/i18n';
 import { confirm, notify } from '@/lib/confirm';
 import { closeTo } from '@/lib/navigation';
@@ -238,23 +252,29 @@ export default function InvoiceDetailScreen() {
         }}
       />
 
-      <Card>
+      <Card style={styles.hero}>
+        <Txt variant="footnote" tone="muted" weight="600">
+          {t('Total', 'Total')}
+        </Txt>
+        <Amount
+          value={splitMoney(formatMoney(inv.total, inv.currency))[0]}
+          currency={inv.currency}
+          size="largeTitle"
+          style={{ marginTop: 2 }}
+        />
         <View style={styles.pills}>
           <Pill label={st.label} tone={st.tone} />
           {fiscal && !isDraft ? <Pill label={ef.label} tone={ef.tone} icon={ef.icon} /> : null}
         </View>
-        <Txt variant="display" style={{ marginTop: space.md }}>
-          {formatMoney(inv.total, inv.currency)}
-        </Txt>
         {inv.paidAmount > 0 && remaining > 0.009 ? (
-          <Txt tone="muted">
+          <Txt variant="small" tone="muted" style={{ marginTop: space.sm }}>
             {t(
               `Încasat ${formatMoney(inv.paidAmount, inv.currency)} · rest ${formatMoney(remaining, inv.currency)}`,
               `Paid ${formatMoney(inv.paidAmount, inv.currency)} · ${formatMoney(remaining, inv.currency)} left`,
             )}
           </Txt>
         ) : null}
-        <View style={{ height: space.md }} />
+        <View style={{ height: space.lg }} />
         <Divider />
         <View style={styles.meta}>
           <Meta label={t('Client', 'Client')} value={inv.clientName} sub={inv.clientEin} />
@@ -281,35 +301,30 @@ export default function InvoiceDetailScreen() {
       ) : null}
 
       <View style={styles.quick}>
-        <Button
-          title={t('Vezi PDF', 'View PDF')}
-          icon="eye-outline"
-          variant="secondary"
-          size="sm"
-          onPress={openPdf}
-          loading={busy === 'pdf'}
-          style={{ flex: 1 }}
-        />
-        <Button
-          title={t('Trimite', 'Share')}
+        <ActionTile variant="plain" icon="eye-outline" label="PDF" onPress={openPdf} loading={busy === 'pdf'} />
+        <ActionTile
+          variant="plain"
           icon="share-outline"
-          variant="secondary"
-          size="sm"
+          label={t('Trimite', 'Share')}
           onPress={sharePdf}
           loading={busy === 'share'}
-          style={{ flex: 1 }}
+        />
+        {spvAction ? (
+          <ActionTile
+            variant="plain"
+            icon={spvAction.icon}
+            label={spvAction.label}
+            onPress={() => act('spv', spvAction.run)}
+            loading={busy === 'spv'}
+          />
+        ) : null}
+        <ActionTile
+          variant="plain"
+          icon="ellipsis-horizontal"
+          label={t('Mai mult', 'More')}
+          onPress={() => setMenu(true)}
         />
       </View>
-      {spvAction ? (
-        <Button
-          title={spvAction.label}
-          icon={spvAction.icon}
-          variant="secondary"
-          loading={busy === 'spv'}
-          onPress={() => act('spv', spvAction.run)}
-          style={{ marginTop: space.sm }}
-        />
-      ) : null}
 
       <SectionTitle title={t('Produse', 'Items')} />
       <Card padded={false}>
@@ -324,7 +339,9 @@ export default function InvoiceDetailScreen() {
                   {l.vatRate}%{l.discountPercent ? ` · −${l.discountPercent}%` : ''}
                 </Txt>
               </View>
-              <Txt weight="600">{formatMoney(l.totalWithVat, inv.currency)}</Txt>
+              <Txt weight="600" tabular>
+                {formatMoney(l.totalWithVat, inv.currency)}
+              </Txt>
             </View>
           </View>
         ))}
@@ -427,7 +444,7 @@ export default function InvoiceDetailScreen() {
 function Meta({ label, value, sub, tone }: { label: string; value: string; sub?: string | null; tone?: 'danger' }) {
   return (
     <View style={{ flex: 1, gap: 2 }}>
-      <Txt variant="caption" tone="muted">
+      <Txt variant="footnote" tone="muted" weight="500">
         {label}
       </Txt>
       <Txt weight="600" tone={tone}>
@@ -445,21 +462,24 @@ function Meta({ label, value, sub, tone }: { label: string; value: string; sub?:
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
     <View style={styles.row}>
-      <Txt tone={bold ? 'default' : 'soft'} weight={bold ? '700' : undefined}>
+      <Txt tone={bold ? 'default' : 'soft'} weight={bold ? '700' : undefined} variant={bold ? 'title' : 'body'}>
         {label}
       </Txt>
-      <Txt weight={bold ? '700' : '500'}>{value}</Txt>
+      <Txt weight={bold ? '700' : '500'} variant={bold ? 'title' : 'body'} tabular>
+        {value}
+      </Txt>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  pills: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap' },
-  meta: { gap: space.md, marginTop: space.md },
+  hero: { paddingTop: space.xl - 4 },
+  pills: { flexDirection: 'row', gap: space.sm, flexWrap: 'wrap', marginTop: space.md },
+  meta: { gap: space.md, marginTop: space.lg },
   metaRow: { flexDirection: 'row', gap: space.md },
-  quick: { flexDirection: 'row', gap: space.sm, marginTop: space.md },
+  quick: { flexDirection: 'row', gap: space.sm, marginTop: space.lg },
   line: { flexDirection: 'row', gap: space.md, padding: space.lg, alignItems: 'center' },
-  totals: { padding: space.lg, gap: 4 },
+  totals: { padding: space.lg, gap: 6 },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   hint: { textAlign: 'center', marginTop: space.lg },
 });

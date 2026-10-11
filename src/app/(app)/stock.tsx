@@ -1,18 +1,29 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useGetStockBalancesQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
+import { splitMoney } from '@/components/charts';
 import { Screen } from '@/components/Screen';
-import { Card, Chip, Divider, EmptyState, ErrorState, ListRow, Loading, Txt } from '@/components/ui';
+import {
+  Amount,
+  Card,
+  Chip,
+  Divider,
+  EmptyState,
+  ErrorState,
+  IconTile,
+  ListRow,
+  Loading,
+  SearchField,
+  Txt,
+} from '@/components/ui';
 import { useT } from '@/i18n';
 import { unitLabel } from '@/lib/domain';
 import { formatAmount, formatMoney } from '@/lib/format';
-import { radius, space, useColors } from '@/theme';
+import { space } from '@/theme';
 
 export default function StockScreen() {
-  const c = useColors();
   const t = useT();
   const [q, setQ] = useState('');
   const [managementId, setManagementId] = useState<number | null>(null);
@@ -42,7 +53,7 @@ export default function StockScreen() {
         <ErrorState message={errorMessage(error)} onRetry={refetch} />
       ) : !data || data.length === 0 ? (
         <EmptyState
-          icon="cube-outline"
+          icon="cube"
           title={t('Niciun stoc', 'No stock')}
           message={t(
             'Stocul apare după primele NIR-uri sau importul inițial.',
@@ -51,22 +62,21 @@ export default function StockScreen() {
         />
       ) : (
         <>
-          <Card>
-            <Txt variant="caption" tone="muted">
-              {t('Valoare stoc (cost mediu)', 'Stock value (average cost)')}
-            </Txt>
-            <Txt variant="heading">{formatMoney(totalValue)}</Txt>
+          <Card style={styles.summary}>
+            <IconTile icon="cube" tone="warn" solid size={44} />
+            <View style={{ flex: 1 }}>
+              <Txt variant="footnote" tone="muted" weight="500">
+                {t('Valoare stoc (cost mediu)', 'Stock value (average cost)')}
+              </Txt>
+              <Amount value={splitMoney(formatMoney(totalValue))[0]} currency="RON" size="heading" />
+            </View>
           </Card>
-          <View style={[styles.search, { backgroundColor: c.surface, borderColor: c.line }]}>
-            <Ionicons name="search" size={18} color={c.muted} />
-            <TextInput
-              value={q}
-              onChangeText={setQ}
-              placeholder={t('Caută produs', 'Search product')}
-              placeholderTextColor={c.muted}
-              style={[styles.searchInput, { color: c.text }]}
-            />
-          </View>
+          <SearchField
+            value={q}
+            onChangeText={setQ}
+            placeholder={t('Caută produs', 'Search product')}
+            style={styles.search}
+          />
           {managements.length > 1 ? (
             <ScrollView
               horizontal
@@ -83,7 +93,7 @@ export default function StockScreen() {
               ))}
             </ScrollView>
           ) : null}
-          <Card padded={false}>
+          <Card padded={false} style={{ marginTop: space.md }}>
             {rows.map((b, i) => {
               const qty = Number(b.quantity);
               return (
@@ -106,17 +116,9 @@ export default function StockScreen() {
 }
 
 const styles = StyleSheet.create({
-  search: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    paddingHorizontal: space.md,
-    marginTop: space.md,
-  },
-  searchInput: { flex: 1, minHeight: 44, fontSize: 15 },
+  summary: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  search: { marginTop: space.lg },
   // A horizontal ScrollView must not grow vertically inside the page column.
-  chipScroll: { flexGrow: 0 },
-  chips: { gap: space.sm, paddingTop: space.md },
+  chipScroll: { flexGrow: 0, marginHorizontal: -space.lg },
+  chips: { gap: space.sm, paddingTop: space.md, paddingHorizontal: space.lg },
 });

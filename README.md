@@ -71,9 +71,23 @@ Everything else is the existing client-portal, invoices and stock API.
 src/app/            routes (expo-router): sign-in, (app)/(tabs)/…, detail screens
 src/api/            RTK Query API (api.ts), base query with token refresh, types
 src/auth/           session, token storage (Keychain/Keystore), app lock
-src/components/     UI kit, sheets/pickers, charts
+src/components/     UI kit (ui.tsx), sheets/pickers, charts, floating tab bar, large-title header, navy hero
 src/features/       push notifications
 src/lib/            formatting, domain rules (VAT, units, statuses), NIR helpers, files
 src/i18n/           ro/en — strings are written inline as t('ro', 'en')
-src/theme/          colors (same palette as tavin.eu), spacing, type
+src/theme/          colors (same palette as tavin.eu), spacing, type, gradients
 ```
+
+## Design
+
+The look follows the tavin.eu landing page, laid out the iOS way:
+
+- **Palette** from the landing page: navy/night chrome, Tavin indigo as the only action colour,
+  green/amber/red strictly for status. The home hero, sign-in, lock screen and balance cards use the
+  landing hero's navy ground with the indigo glow (`NavyBackdrop`).
+- **iOS structure**: grouped background with rounded cells, large titles that collapse into the bar
+  (native on stack screens, `TabScreen` on tabs), Settings-style colour icon tiles, a segmented
+  control with a sliding thumb, capsule buttons, sheets with a grabber and round close button,
+  and a floating capsule tab bar.
+- Gradients and glows are plain styles (`experimental_backgroundImage`, `boxShadow`), so no extra
+  native modules are needed. Haptics (`src/lib/haptics.ts`) tick on selections and confirm actions.

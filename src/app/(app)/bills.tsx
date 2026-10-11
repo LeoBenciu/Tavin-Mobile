@@ -5,7 +5,7 @@ import { useGetBillsQuery, useLazyGetDocumentUrlQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
 import type { Bill } from '@/api/types';
 import { Screen } from '@/components/Screen';
-import { Card, Divider, EmptyState, ErrorState, Kpi, ListRow, Loading, Pill, Segmented } from '@/components/ui';
+import { Card, Divider, EmptyState, ErrorState, ListRow, Loading, Pill, Segmented, StatStrip } from '@/components/ui';
 import { useT, type Translate } from '@/i18n';
 import { notify } from '@/lib/confirm';
 import { openUrl } from '@/lib/files';
@@ -53,17 +53,23 @@ export default function BillsScreen() {
     <Screen refreshing={isFetching && !isLoading} onRefresh={refetch}>
       {data ? (
         <View style={styles.kpis}>
-          <Kpi label={t('Total de plătit', 'Total to pay')} value={formatMoneyShort(data.stats.total)} />
-          <Kpi
-            label={t('Restante', 'Overdue')}
-            value={formatMoneyShort(data.stats.overdue)}
-            hint={t(`${data.stats.overdueCount} facturi`, `${data.stats.overdueCount} bills`)}
-            tone={data.stats.overdue > 0 ? 'danger' : undefined}
-          />
-          <Kpi
-            label={t('Săptămâna asta', 'This week')}
-            value={formatMoneyShort(data.stats.dueThisWeek)}
-            hint={t(`${data.stats.dueThisWeekCount} facturi`, `${data.stats.dueThisWeekCount} bills`)}
+          <StatStrip
+            items={[
+              { label: t('Total de plătit', 'Total to pay'), value: formatMoneyShort(data.stats.total) },
+              {
+                label: t(`Restante (${data.stats.overdueCount})`, `Overdue (${data.stats.overdueCount})`),
+                value: formatMoneyShort(data.stats.overdue),
+                tone: data.stats.overdue > 0 ? 'danger' : 'default',
+              },
+              {
+                label: t(
+                  `Săptămâna asta (${data.stats.dueThisWeekCount})`,
+                  `This week (${data.stats.dueThisWeekCount})`,
+                ),
+                value: formatMoneyShort(data.stats.dueThisWeek),
+                tone: 'warn',
+              },
+            ]}
           />
         </View>
       ) : null}
@@ -82,7 +88,7 @@ export default function BillsScreen() {
         <ErrorState message={errorMessage(error)} onRetry={refetch} />
       ) : bills.length === 0 ? (
         <EmptyState
-          icon="wallet-outline"
+          icon="wallet"
           title={
             filter === 'open'
               ? t('Nicio factură de plătit', 'No bills to pay')
@@ -108,13 +114,15 @@ export default function BillsScreen() {
                     : t(`scadentă în ${days} zile`, `due in ${days} days`);
             return (
               <View key={b.id}>
-                {i > 0 ? <Divider inset={space.lg} /> : null}
+                {i > 0 ? <Divider inset={60} /> : null}
                 <ListRow
+                  icon={b.status === 'paid' ? 'checkmark' : 'document-text'}
+                  iconTone={st.tone}
                   title={b.vendor || b.description}
                   subtitle={`${b.invoiceNumber} · ${due}`}
                   value={formatMoney(b.status === 'paid' ? b.amount : b.remainingAmount, b.currency)}
                   valueTone={b.status === 'overdue' ? 'danger' : undefined}
-                  right={<Pill label={st.label} tone={st.tone} />}
+                  below={<Pill label={st.label} tone={st.tone} />}
                   onPress={() => open(b)}
                   chevron={false}
                 />
@@ -128,5 +136,5 @@ export default function BillsScreen() {
 }
 
 const styles = StyleSheet.create({
-  kpis: { flexDirection: 'row', gap: space.sm, marginBottom: space.md },
+  kpis: { marginBottom: space.lg },
 });

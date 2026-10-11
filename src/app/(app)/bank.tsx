@@ -3,6 +3,8 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useGetBankQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
+import { splitMoney } from '@/components/charts';
+import { BalanceCard, GlassChip } from '@/components/Hero';
 import { Screen } from '@/components/Screen';
 import {
   Card,
@@ -46,7 +48,7 @@ export default function BankScreen() {
     return (
       <Screen refreshing={isFetching} onRefresh={refetch}>
         <EmptyState
-          icon="card-outline"
+          icon="card"
           title={t('Niciun cont bancar', 'No bank accounts')}
           message={t(
             'Conturile apar aici după ce încarci extrase sau le conectezi prin Open Banking pe tavin.eu.',
@@ -57,26 +59,41 @@ export default function BankScreen() {
     );
   }
 
+  const [total, currency] = splitMoney(formatMoney(data.totalBalance));
+  const connected = data.accounts.filter((a) => a.connected).length;
   return (
     <Screen refreshing={isFetching} onRefresh={refetch}>
-      <Card>
-        <Txt variant="caption" tone="muted">
-          {t('Sold total', 'Total balance')}
-        </Txt>
-        <Txt variant="display">{formatMoney(data.totalBalance)}</Txt>
-      </Card>
+      <BalanceCard
+        label={t('Sold total', 'Total balance')}
+        amount={total}
+        currency={currency}
+        footer={
+          <GlassChip
+            label={
+              connected > 0
+                ? t(
+                    `${data.accounts.length} conturi · ${connected} prin Open Banking`,
+                    `${data.accounts.length} accounts · ${connected} via Open Banking`,
+                  )
+                : t(`${data.accounts.length} conturi`, `${data.accounts.length} accounts`)
+            }
+          />
+        }
+      />
 
       <SectionTitle title={t('Conturi', 'Accounts')} />
       <Card padded={false}>
         {data.accounts.map((a, i) => (
           <View key={a.id}>
-            {i > 0 ? <Divider inset={space.lg} /> : null}
+            {i > 0 ? <Divider inset={60} /> : null}
             <ListRow
-              icon="card-outline"
+              icon="business"
+              iconTone="accent"
+              solid
               title={a.name || a.bank}
               subtitle={`${a.iban}${a.connected && a.lastSync ? ` · ${t('sincronizat', 'synced')} ${formatRelative(a.lastSync)}` : ''}`}
               value={formatMoney(a.balance, a.currency)}
-              right={a.connected ? <Pill label="Open Banking" tone="good" /> : null}
+              below={a.connected ? <Pill label="Open Banking" tone="good" icon="flash" /> : null}
             />
           </View>
         ))}
@@ -96,14 +113,14 @@ export default function BankScreen() {
         </ScrollView>
       ) : null}
       {transactions.length === 0 ? (
-        <Txt tone="muted" style={{ textAlign: 'center', padding: space.xl }}>
+        <Txt tone="muted" style={{ textAlign: 'center', padding: space.xl }} variant="small">
           {t('Nicio tranzacție.', 'No transactions.')}
         </Txt>
       ) : (
         <Card padded={false}>
           {transactions.slice(0, 100).map((x, i) => (
             <View key={x.id}>
-              {i > 0 ? <Divider inset={space.lg} /> : null}
+              {i > 0 ? <Divider inset={60} /> : null}
               <ListRow
                 icon={x.type === 'credit' ? 'arrow-down' : 'arrow-up'}
                 iconTone={x.type === 'credit' ? 'good' : 'neutral'}
@@ -123,6 +140,6 @@ export default function BankScreen() {
 
 const styles = StyleSheet.create({
   // A horizontal ScrollView must not grow vertically inside the page column.
-  chipScroll: { flexGrow: 0 },
-  chips: { gap: space.sm, paddingBottom: space.md },
+  chipScroll: { flexGrow: 0, marginHorizontal: -space.lg },
+  chips: { gap: space.sm, paddingBottom: space.md, paddingHorizontal: space.lg },
 });

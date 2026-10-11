@@ -10,6 +10,7 @@ import { ActionSheet } from '@/components/Sheet';
 import { Card, Divider, EmptyState, ErrorState, Loading, Pill, Segmented, Txt } from '@/components/ui';
 import { useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
+import { haptic } from '@/lib/haptics';
 import { taskStatusLabel } from '@/lib/domain';
 import { daysUntil, formatDate } from '@/lib/format';
 import { space, useColors } from '@/theme';
@@ -57,7 +58,7 @@ export default function TasksScreen() {
         <ErrorState message={errorMessage(error)} onRetry={refetch} />
       ) : tasks.length === 0 ? (
         <EmptyState
-          icon="checkmark-done-outline"
+          icon="checkmark-done"
           title={
             filter === 'open'
               ? t('Nimic de făcut', 'All caught up')
@@ -76,23 +77,26 @@ export default function TasksScreen() {
             const done = task.status === 'COMPLETED';
             return (
               <View key={task.id}>
-                {i > 0 ? <Divider inset={56} /> : null}
+                {i > 0 ? <Divider inset={54} /> : null}
                 <Pressable
                   onPress={() => setSelected(task)}
                   style={({ pressed }) => [styles.row, pressed && { backgroundColor: c.surfaceAlt }]}>
                   <Pressable
-                    onPress={() => setStatus(task, done ? 'PENDING' : 'COMPLETED')}
+                    onPress={() => {
+                      if (!done) haptic.success();
+                      void setStatus(task, done ? 'PENDING' : 'COMPLETED');
+                    }}
                     hitSlop={10}
                     accessibilityRole="checkbox"
-                    accessibilityState={{ checked: done }}>
-                    <Ionicons
-                      name={done ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={26}
-                      color={done ? c.good : c.muted}
-                    />
+                    accessibilityState={{ checked: done }}
+                    style={[
+                      styles.check,
+                      done ? { backgroundColor: c.accent, borderColor: c.accent } : { borderColor: c.faint },
+                    ]}>
+                    {done ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
                   </Pressable>
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Txt weight="500" style={done ? { textDecorationLine: 'line-through' } : undefined}>
+                    <Txt weight="500" tone={done ? 'muted' : 'default'}>
                       {task.title}
                     </Txt>
                     {task.description ? (
@@ -155,5 +159,14 @@ export default function TasksScreen() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: space.md, padding: space.lg, alignItems: 'flex-start' },
+  check: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
   meta: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap', marginTop: 2 },
 });

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { haptic } from '@/lib/haptics';
 import { formatAmount, formatMoneyShort } from '@/lib/format';
-import { space, useColors } from '@/theme';
-import { Txt } from './ui';
+import { gradient, space, useColors } from '@/theme';
+import { Amount, Txt } from './ui';
 
 /**
  * Single-series column chart (one value per month). Tap a column to read its
- * value; the selected column stays the same hue, the others recede.
+ * value; the selected column carries the indigo gradient, the others recede.
  */
 export function MonthlyBars({
   data,
@@ -31,27 +32,36 @@ export function MonthlyBars({
     );
   }
 
+  const current = data[active]?.value ?? 0;
+  const [amount, currency] = splitMoney(formatMoneyShort(current));
+
   return (
     <View>
       <View style={styles.readout}>
-        <Txt variant="caption" tone="muted">
+        <Txt variant="footnote" tone="muted" weight="500">
           {data[active]?.label}
         </Txt>
-        <Txt variant="title" weight="700">
-          {formatMoneyShort(data[active]?.value ?? 0)}
-        </Txt>
+        <Amount value={amount} currency={currency} size="display" />
       </View>
-      <View style={[styles.plot, { height, borderBottomColor: c.line }]}>
+      <View style={[styles.plot, { height }]}>
         {data.map((d, i) => {
-          const h = Math.max(2, (Math.max(0, d.value) / max) * (height - 8));
+          const h = Math.max(6, (Math.max(0, d.value) / max) * (height - 8));
+          const on = i === active;
           return (
             <Pressable
               key={`${d.label}-${i}`}
-              onPress={() => setSelected(i)}
+              onPress={() => {
+                if (!on) haptic.selection();
+                setSelected(i);
+              }}
               style={styles.hit}
               accessibilityLabel={`${d.label}: ${formatAmount(d.value)}`}>
               <View
-                style={[styles.column, { height: h, backgroundColor: c.chart, opacity: i === active ? 1 : 0.45 }]}
+                style={[
+                  styles.column,
+                  { height: h, backgroundColor: on ? c.chart : c.chartRest },
+                  on ? [gradient('linear-gradient(180deg, #7C8CFF, #465FE9)'), styles.columnGlow] : null,
+                ]}
               />
             </Pressable>
           );
@@ -59,7 +69,13 @@ export function MonthlyBars({
       </View>
       <View style={styles.axis}>
         {data.map((d, i) => (
-          <Txt key={`${d.label}-${i}`} variant="caption" tone="muted" style={styles.axisLabel} numberOfLines={1}>
+          <Txt
+            key={`${d.label}-${i}`}
+            variant="caption"
+            tone={i === active ? 'accent' : 'muted'}
+            weight={i === active ? '700' : '500'}
+            style={styles.axisLabel}
+            numberOfLines={1}>
             {d.label.slice(0, 3)}
           </Txt>
         ))}
@@ -82,27 +98,28 @@ export function RankedBars({
   const shown = items.slice(0, limit);
   const max = Math.max(0, ...shown.map((i) => i.value));
   return (
-    <View style={{ gap: space.md }}>
+    <View style={{ gap: space.lg }}>
       {shown.map((it, idx) => (
         <View key={`${it.label}-${idx}`}>
           <View style={styles.rankHead}>
-            <Txt variant="small" style={{ flex: 1 }} numberOfLines={1}>
+            <Txt variant="small" weight="500" style={{ flex: 1 }} numberOfLines={1}>
               {it.label}
             </Txt>
-            <Txt variant="small" weight="600">
+            <Txt variant="small" weight="700" tabular>
               {formatMoneyShort(it.value, currency)}
             </Txt>
           </View>
-          <View style={[styles.track, { backgroundColor: c.chip }]}>
+          <View style={[styles.track, { backgroundColor: c.fill }]}>
             <View
               style={[
                 styles.fill,
-                { width: `${max > 0 ? Math.max(2, (it.value / max) * 100) : 0}%`, backgroundColor: c.chart },
+                { width: `${max > 0 ? Math.max(3, (it.value / max) * 100) : 0}%`, backgroundColor: c.chart },
+                gradient('linear-gradient(90deg, #465FE9, #7C8CFF)'),
               ]}
             />
           </View>
           {it.sub ? (
-            <Txt variant="caption" tone="muted" style={{ marginTop: 2 }}>
+            <Txt variant="caption" tone="muted" style={{ marginTop: 4 }}>
               {it.sub}
             </Txt>
           ) : null}
@@ -112,16 +129,23 @@ export function RankedBars({
   );
 }
 
+/** "12.480 RON" → ["12.480", "RON"] */
+export function splitMoney(formatted: string): [string, string] {
+  const i = formatted.lastIndexOf(' ');
+  return i > 0 ? [formatted.slice(0, i), formatted.slice(i + 1)] : [formatted, ''];
+}
+
 const styles = StyleSheet.create({
   empty: { textAlign: 'center', paddingVertical: space.xl },
-  readout: { marginBottom: space.sm },
-  plot: { flexDirection: 'row', alignItems: 'flex-end', borderBottomWidth: StyleSheet.hairlineWidth },
-  // 2px gap between adjacent columns; the hit target is the whole slot.
-  hit: { flex: 1, height: '100%', justifyContent: 'flex-end', paddingHorizontal: 1 },
-  column: { borderTopLeftRadius: 4, borderTopRightRadius: 4 },
-  axis: { flexDirection: 'row', marginTop: 4 },
-  axisLabel: { flex: 1, textAlign: 'center', fontSize: 10 },
-  rankHead: { flexDirection: 'row', gap: space.sm, marginBottom: 4 },
-  track: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 4 },
+  readout: { marginBottom: space.md, gap: 2 },
+  plot: { flexDirection: 'row', alignItems: 'flex-end' },
+  // 4px gap between adjacent columns; the hit target is the whole slot.
+  hit: { flex: 1, height: '100%', justifyContent: 'flex-end', paddingHorizontal: 2 },
+  column: { borderRadius: 6 },
+  columnGlow: { boxShadow: '0px 8px 18px -8px rgba(70, 95, 233, 0.9)' },
+  axis: { flexDirection: 'row', marginTop: 6 },
+  axisLabel: { flex: 1, textAlign: 'center', fontSize: 10.5 },
+  rankHead: { flexDirection: 'row', gap: space.sm, marginBottom: 6 },
+  track: { height: 10, borderRadius: 5, overflow: 'hidden' },
+  fill: { height: 10, borderRadius: 5 },
 });

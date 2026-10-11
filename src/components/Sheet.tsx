@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState, type ReactNode } from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '@/i18n';
 import { radius, space, useColors, type Tone, toneColors } from '@/theme';
-import { Divider, Txt, type IconName } from './ui';
+import { Divider, SearchField, Txt, type IconName } from './ui';
 
-/** Bottom sheet over a dimmed backdrop. */
+/** Bottom sheet over a dimmed backdrop, shaped like an iOS sheet. */
 export function Sheet({
   visible,
   onClose,
@@ -22,29 +22,41 @@ export function Sheet({
   fullHeight?: boolean;
 }) {
   const c = useColors();
+  const t = useT();
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay }]} onPress={onClose} />
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay }]}
+          onPress={onClose}
+          accessibilityLabel={t('Închide', 'Close')}
+        />
         <View style={styles.spacer} pointerEvents="box-none" />
         <View
           style={[
             styles.sheet,
-            fullHeight && { height: '88%' },
-            { backgroundColor: c.surface, paddingBottom: insets.bottom + space.md },
+            fullHeight && { height: '90%' },
+            { backgroundColor: c.background, paddingBottom: insets.bottom + space.md },
           ]}>
-          <View style={[styles.grabber, { backgroundColor: c.line }]} />
+          <View style={[styles.grabber, { backgroundColor: c.faint }]} />
           {title ? (
             <View style={styles.header}>
-              <Txt variant="title" style={{ flex: 1 }}>
+              <Txt variant="title" style={styles.headerTitle} numberOfLines={1}>
                 {title}
               </Txt>
-              <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button">
-                <Ionicons name="close" size={24} color={c.muted} />
+              <Pressable
+                onPress={onClose}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={t('Închide', 'Close')}
+                style={({ pressed }) => [styles.close, { backgroundColor: c.fill, opacity: pressed ? 0.6 : 1 }]}>
+                <Ionicons name="close" size={18} color={c.muted} />
               </Pressable>
             </View>
-          ) : null}
+          ) : (
+            <View style={{ height: space.md }} />
+          )}
           {children}
         </View>
       </KeyboardAvoidingView>
@@ -60,7 +72,7 @@ export type SheetAction = {
   hidden?: boolean;
 };
 
-/** A list of actions (the mobile equivalent of a row's "…" menu). */
+/** A list of actions (the mobile equivalent of a row's "…" menu), grouped like an iOS menu. */
 export function ActionSheet({
   visible,
   onClose,
@@ -74,13 +86,16 @@ export function ActionSheet({
 }) {
   const c = useColors();
   const shown = actions.filter((a) => !a.hidden);
-  return (
-    <Sheet visible={visible} onClose={onClose} title={title}>
-      {shown.map((a, i) => {
+  const regular = shown.filter((a) => a.tone !== 'danger');
+  const destructive = shown.filter((a) => a.tone === 'danger');
+  const group = (list: SheetAction[]) => (
+    <View style={[styles.group, { backgroundColor: c.surface }]}>
+      {list.map((a, i) => {
         const tc = toneColors(c, a.tone ?? 'neutral');
+        const colored = a.tone && a.tone !== 'neutral';
         return (
           <View key={a.label}>
-            {i > 0 ? <Divider inset={space.lg} /> : null}
+            {i > 0 ? <Divider inset={a.icon ? 52 : space.lg} /> : null}
             <Pressable
               onPress={() => {
                 onClose();
@@ -88,14 +103,24 @@ export function ActionSheet({
                 setTimeout(a.onPress, Platform.OS === 'ios' ? 350 : 0);
               }}
               style={({ pressed }) => [styles.action, pressed && { backgroundColor: c.surfaceAlt }]}>
-              {a.icon ? <Ionicons name={a.icon} size={20} color={a.tone ? tc.fg : c.textSoft} /> : null}
-              <Txt weight="500" style={a.tone && a.tone !== 'neutral' ? { color: tc.fg } : undefined}>
+              {a.icon ? (
+                <Ionicons name={a.icon} size={21} color={colored ? tc.fg : c.accentText} style={styles.actionIcon} />
+              ) : null}
+              <Txt weight="500" style={colored ? { color: tc.fg } : undefined}>
                 {a.label}
               </Txt>
             </Pressable>
           </View>
         );
       })}
+    </View>
+  );
+  return (
+    <Sheet visible={visible} onClose={onClose} title={title}>
+      <View style={styles.groups}>
+        {regular.length > 0 ? group(regular) : null}
+        {destructive.length > 0 ? group(destructive) : null}
+      </View>
     </Sheet>
   );
 }
@@ -137,22 +162,15 @@ export function PickerSheet<T>({
 
   return (
     <Sheet visible={visible} onClose={onClose} title={title} fullHeight>
-      <View style={[styles.search, { backgroundColor: c.chip }]}>
-        <Ionicons name="search" size={18} color={c.muted} />
-        <TextInput
-          value={q}
-          onChangeText={setQ}
-          placeholder={t('Caută…', 'Search…')}
-          placeholderTextColor={c.muted}
-          style={[styles.searchInput, { color: c.text }]}
-          autoCorrect={false}
-        />
-      </View>
-      {footer}
+      <SearchField value={q} onChangeText={setQ} placeholder={t('Caută', 'Search')} style={styles.search} />
+      {footer ? <View style={[styles.footerGroup, { backgroundColor: c.surface }]}>{footer}</View> : null}
       <FlatList
         data={filtered}
         keyExtractor={(it) => String(keyOf(it))}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        style={[styles.list, { backgroundColor: c.surface }]}
+        contentContainerStyle={{ flexGrow: 1 }}
         ItemSeparatorComponent={() => <Divider inset={space.lg} />}
         ListEmptyComponent={
           <Txt tone="muted" style={styles.empty}>
@@ -171,7 +189,7 @@ export function PickerSheet<T>({
               }}
               style={({ pressed }) => [styles.option, pressed && { backgroundColor: c.surfaceAlt }]}>
               <View style={{ flex: 1 }}>
-                <Txt weight="500" numberOfLines={1}>
+                <Txt weight={selected ? '600' : '500'} numberOfLines={1}>
                   {labelOf(item)}
                 </Txt>
                 {sub ? (
@@ -180,7 +198,7 @@ export function PickerSheet<T>({
                   </Txt>
                 ) : null}
               </View>
-              {selected ? <Ionicons name="checkmark" size={20} color={c.accentText} /> : null}
+              {selected ? <Ionicons name="checkmark" size={21} color={c.accentText} /> : null}
             </Pressable>
           );
         }}
@@ -191,32 +209,47 @@ export function PickerSheet<T>({
 
 const styles = StyleSheet.create({
   spacer: { flex: 1 },
-  sheet: { borderTopLeftRadius: radius.lg + 4, borderTopRightRadius: radius.lg + 4, maxHeight: '92%' },
-  grabber: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center', marginTop: space.sm },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: space.lg, paddingVertical: space.md },
+  sheet: { borderTopLeftRadius: radius.xl + 6, borderTopRightRadius: radius.xl + 6, maxHeight: '94%' },
+  grabber: { width: 36, height: 5, borderRadius: 3, alignSelf: 'center', marginTop: 6, opacity: 0.5 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 56,
+    paddingTop: space.sm,
+    paddingBottom: space.md,
+    minHeight: 48,
+  },
+  headerTitle: { textAlign: 'center' },
+  close: {
+    position: 'absolute',
+    right: space.lg,
+    top: space.sm,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groups: { paddingHorizontal: space.lg, gap: space.md, paddingBottom: space.sm },
+  group: { borderRadius: radius.md + 2, overflow: 'hidden' },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
     paddingHorizontal: space.lg,
-    paddingVertical: space.lg,
+    minHeight: 52,
   },
-  search: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    marginHorizontal: space.lg,
-    marginBottom: space.sm,
-    borderRadius: radius.md,
-    paddingHorizontal: space.md,
-  },
-  searchInput: { flex: 1, minHeight: 44, fontSize: 15 },
+  actionIcon: { width: 24, textAlign: 'center' },
+  search: { marginHorizontal: space.lg, marginBottom: space.md },
+  footerGroup: { marginHorizontal: space.lg, marginBottom: space.md, borderRadius: radius.md + 2, overflow: 'hidden' },
+  list: { marginHorizontal: space.lg, borderRadius: radius.md + 2 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
-    minHeight: 52,
+    minHeight: 54,
   },
   empty: { textAlign: 'center', padding: space.xl },
 });
