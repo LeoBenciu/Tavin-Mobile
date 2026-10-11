@@ -15,6 +15,7 @@ import { PickerSheet } from '@/components/Sheet';
 import { Banner, Button, Card, Chip, ErrorState, Field, Loading, SelectField, Txt } from '@/components/ui';
 import { useT } from '@/i18n';
 import { confirm, notify } from '@/lib/confirm';
+import { closeTo } from '@/lib/navigation';
 import { ARTICLE_TYPES, ARTICLE_VAT_OPTIONS, articleTypeLabel, UNITS, unitLabel } from '@/lib/domain';
 import { space } from '@/theme';
 
@@ -54,7 +55,7 @@ function ArticleForm({ id, existing }: { id: number | null; existing?: Article }
     try {
       if (id != null) await update({ id, data }).unwrap();
       else await create(data).unwrap();
-      router.back();
+      closeTo(router, '/articles');
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -71,7 +72,7 @@ function ArticleForm({ id, existing }: { id: number | null; existing?: Article }
       return;
     try {
       await remove(id).unwrap();
-      router.back();
+      closeTo(router, '/articles');
     } catch (e) {
       notify(t('Nu am putut șterge', 'Couldn’t delete'), errorMessage(e));
     }

@@ -9,7 +9,7 @@ as the web client portal.
 
 | Area | Screens |
 | --- | --- |
-| Home | Bank balance, receivables, bills to pay, VAT due, last month's revenue/expenses, next tax deadline, tasks, balance owed to the accountant, recent activity |
+| Home | Bank balance, receivables, bills to pay, VAT due, this month's revenue and expenses, next tax deadline, tasks, balance owed to the accountant, recent activity |
 | Documents | Snap invoices/receipts with the camera, pick photos or PDFs, upload queue with retry; list of uploaded and booked documents, view file, retry/cancel, delete |
 | NIR | Create the goods receipt (notă de recepție) from an incoming invoice, edit received quantities, warehouse (gestiune) per line or for all, committee; save, export/share PDF |
 | Invoicing | List with filters/search; new invoice / proforma / aviz with client picker, ANAF CUI lookup, saved items, free lines, VAT, discount, warehouse, series/number, due date, currency, e-Factura auto-submit and email; detail with PDF view/share, email, SPV submit/resend/status, record payment, receipt (chitanță), credit note (storno), duplicate, cancel, delete, issue draft |

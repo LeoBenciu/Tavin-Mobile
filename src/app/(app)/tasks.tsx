@@ -109,7 +109,7 @@ export default function TasksScreen() {
                       ) : null}
                       {task.createdBy ? (
                         <Txt variant="caption" tone="muted">
-                          · {task.createdBy}
+                          {task.dueDate ? `· ${task.createdBy}` : task.createdBy}
                         </Txt>
                       ) : null}
                     </View>

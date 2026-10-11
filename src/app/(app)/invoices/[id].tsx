@@ -24,6 +24,7 @@ import { ActionSheet, Sheet, type SheetAction } from '@/components/Sheet';
 import { Banner, Button, Card, Divider, ErrorState, Field, Loading, Pill, SectionTitle, Txt } from '@/components/ui';
 import { useT } from '@/i18n';
 import { confirm, notify } from '@/lib/confirm';
+import { closeTo } from '@/lib/navigation';
 import {
   efacturaStatus,
   invoiceNumber,
@@ -192,7 +193,7 @@ export default function InvoiceDetailScreen() {
         ) {
           await act('delete', async () => {
             await remove(inv.id).unwrap();
-            router.back();
+            closeTo(router, '/invoices');
           });
         }
       },

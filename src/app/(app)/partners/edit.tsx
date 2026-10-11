@@ -16,6 +16,7 @@ import { Screen } from '@/components/Screen';
 import { Banner, Button, Card, ErrorState, Field, Loading, Txt } from '@/components/ui';
 import { useT } from '@/i18n';
 import { confirm, notify } from '@/lib/confirm';
+import { closeTo } from '@/lib/navigation';
 import { nextNumericCode } from '@/lib/domain';
 import { space } from '@/theme';
 
@@ -134,7 +135,7 @@ function PartnerForm({
       } else {
         await create({ kind, data: { ...data, code: form.code.trim() || nextNumericCode(partners) } }).unwrap();
       }
-      router.back();
+      closeTo(router, '/partners');
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -151,7 +152,7 @@ function PartnerForm({
       return;
     try {
       await remove({ kind, id }).unwrap();
-      router.back();
+      closeTo(router, '/partners');
     } catch (e) {
       notify(t('Nu am putut șterge', 'Couldn’t delete'), errorMessage(e));
     }

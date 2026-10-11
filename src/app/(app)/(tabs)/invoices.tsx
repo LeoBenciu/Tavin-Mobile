@@ -100,7 +100,11 @@ export default function InvoicesScreen() {
           returnKeyType="search"
         />
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chips}>
         {statusFilters.map((f) => (
           <Chip
             key={f.label}
@@ -113,7 +117,11 @@ export default function InvoicesScreen() {
           />
         ))}
       </ScrollView>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chips}>
         {typeFilters.map((f) => (
           <Chip
             key={f.label}
@@ -234,6 +242,8 @@ const styles = StyleSheet.create({
     marginTop: space.md,
   },
   searchInput: { flex: 1, minHeight: 44, fontSize: 15 },
+  // A horizontal ScrollView must not grow vertically inside the page column.
+  chipScroll: { flexGrow: 0 },
   chips: { gap: space.sm, paddingVertical: space.sm },
   item: { marginBottom: space.md, gap: space.sm },
   itemTop: { flexDirection: 'row', gap: space.md },

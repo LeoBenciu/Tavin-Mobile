@@ -647,7 +647,8 @@ const styles = StyleSheet.create({
   fieldLabel: { marginBottom: 6 },
   fieldNote: { marginTop: 4 },
   inputWrap: { borderWidth: 1, borderRadius: radius.md, flexDirection: 'row', alignItems: 'center' },
-  input: { flex: 1, minHeight: 48, paddingHorizontal: space.md, fontSize: font.body },
+  // minWidth 0 lets the input shrink next to a trailing action instead of pushing it out.
+  input: { flex: 1, minWidth: 0, minHeight: 48, paddingHorizontal: space.md, fontSize: font.body },
   inputMultiline: { minHeight: 96, paddingTop: space.md, textAlignVertical: 'top' },
   select: { minHeight: 48, paddingHorizontal: space.md, gap: space.sm },
   segmented: { flexDirection: 'row', borderRadius: radius.md, padding: 3 },

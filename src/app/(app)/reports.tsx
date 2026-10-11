@@ -57,14 +57,15 @@ export default function ReportsScreen() {
   const expenses = useGetExpensesByCategoryQuery(period, { skip: tab !== 'expenses' });
 
   const months = language === 'ro' ? MONTHS_RO : MONTHS_EN;
-  const monthly = useMemo(
-    () =>
-      [...(overview.data?.monthlyData ?? [])]
-        .sort((a, b) => a.month.localeCompare(b.month))
-        .slice(-12)
-        .map((d) => ({ label: months[Number(d.month.slice(5, 7)) - 1] ?? d.month, value: d.revenue })),
-    [overview.data, months],
-  );
+  // January → this month, zero-filled, so columns keep their place and width.
+  const monthly = useMemo(() => {
+    const now = new Date();
+    const byKey = new Map((overview.data?.monthlyData ?? []).map((d) => [d.month, d.revenue]));
+    return Array.from({ length: now.getMonth() + 1 }, (_, m) => {
+      const key = `${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`;
+      return { label: months[m], value: byKey.get(key) ?? 0 };
+    });
+  }, [overview.data, months]);
 
   const active = { pnl, cash, vat, clients: sales, expenses }[tab];
   const refresh = () => {
@@ -89,7 +90,11 @@ export default function ReportsScreen() {
         )}
       </Card>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chips}>
         {(
           [
             ['month', t('Luna aceasta', 'This month')],
@@ -244,6 +249,8 @@ function Line({
 }
 
 const styles = StyleSheet.create({
+  // A horizontal ScrollView must not grow vertically inside the page column.
+  chipScroll: { flexGrow: 0 },
   chips: { gap: space.sm, paddingVertical: space.md },
   line: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
 });
