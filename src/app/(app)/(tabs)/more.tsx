@@ -1,16 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
+import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useGetApprovalsQuery, useGetNotificationsQuery, useGetTasksQuery } from '@/api/api';
 import { useUser } from '@/auth/session';
+import { THEME_OPTIONS, themeIcon, themeLabel } from '@/components/AppearancePicker';
 import { TabScreen } from '@/components/LargeTitle';
+import { ActionSheet } from '@/components/Sheet';
 import { Avatar, Card, Divider, ListRow, SectionTitle, Tap, Txt, type IconName } from '@/components/ui';
 import { useT } from '@/i18n';
 import { APP_VERSION, WEB_APP_URL } from '@/lib/config';
 import { openUrl } from '@/lib/files';
 import { initials } from '@/lib/format';
-import { space, useColors, type TileTone } from '@/theme';
+import { space, useColors, useThemePreference, type TileTone } from '@/theme';
 
 type Item = {
   icon: IconName;
@@ -20,6 +23,8 @@ type Item = {
   href?: Href;
   onPress?: () => void;
   badge?: number;
+  /** Current value, shown grey on the right (iOS Settings). */
+  detail?: string;
 };
 
 export default function MoreScreen() {
@@ -31,6 +36,8 @@ export default function MoreScreen() {
   const { data: tasks } = useGetTasksQuery();
   const { data: notifications } = useGetNotificationsQuery();
 
+  const { preference, setPreference } = useThemePreference();
+  const [themeMenu, setThemeMenu] = useState(false);
   const openTasks = (tasks?.tasks ?? []).filter((x) => x.status === 'PENDING' || x.status === 'IN_PROGRESS').length;
   const pendingApprovals = approvals?.data.length ?? 0;
 
@@ -86,6 +93,13 @@ export default function MoreScreen() {
     {
       title: t('Cont', 'Account'),
       items: [
+        {
+          icon: themeIcon(preference),
+          tone: 'slate',
+          title: t('Aspect', 'Appearance'),
+          detail: themeLabel(t, preference),
+          onPress: () => setThemeMenu(true),
+        },
         { icon: 'settings', tone: 'neutral', title: t('Setări', 'Settings'), href: '/settings' },
         {
           icon: 'globe',
@@ -116,7 +130,7 @@ export default function MoreScreen() {
             {user.clientCompany.name}
           </Txt>
           <Txt variant="footnote" tone="accent" weight="600" numberOfLines={1}>
-            {t('Profil, securitate, notificări', 'Profile, security, notifications')}
+            {t('Profil, securitate, aspect', 'Profile, security, appearance')}
           </Txt>
         </View>
         <Ionicons name="chevron-forward" size={17} color={c.faint} />
@@ -137,6 +151,7 @@ export default function MoreScreen() {
                   subtitle={it.subtitle}
                   numberOfLines={it.subtitle ? 2 : 1}
                   badge={it.badge}
+                  right={it.detail ? <Txt tone="muted">{it.detail}</Txt> : undefined}
                   onPress={it.onPress ?? (() => it.href && router.push(it.href))}
                 />
               </View>
@@ -147,6 +162,16 @@ export default function MoreScreen() {
       <Txt variant="footnote" tone="faint" style={{ textAlign: 'center', marginTop: space.xl }}>
         Tavin {APP_VERSION}
       </Txt>
+      <ActionSheet
+        visible={themeMenu}
+        onClose={() => setThemeMenu(false)}
+        title={t('Aspect', 'Appearance')}
+        actions={THEME_OPTIONS.map((p) => ({
+          label: themeLabel(t, p),
+          icon: p === preference ? 'checkmark-circle' : 'ellipse-outline',
+          onPress: () => setPreference(p),
+        }))}
+      />
     </TabScreen>
   );
 }

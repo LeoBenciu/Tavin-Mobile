@@ -1,5 +1,9 @@
 import { Platform, useColorScheme, type ViewStyle } from 'react-native';
 
+import { useThemePreference } from './preference';
+
+export { ThemePreferenceProvider, useThemePreference, type ThemePreference } from './preference';
+
 /**
  * Tavin's palette, taken from the landing page (tavin.eu, LandingPage.css): deck navy
  * chrome, Tavin indigo as the only action colour, green / amber / red strictly
@@ -122,12 +126,20 @@ export const font = {
   largeTitle: 34,
 } as const;
 
+/** The theme in effect: the user's choice in Settings, or the phone's when set to Automatic. */
+export function useColorMode(): 'light' | 'dark' {
+  const system = useColorScheme();
+  const { preference } = useThemePreference();
+  if (preference !== 'system') return preference;
+  return system === 'dark' ? 'dark' : 'light';
+}
+
 export function useColors(): Colors {
-  return useColorScheme() === 'dark' ? dark : light;
+  return useColorMode() === 'dark' ? dark : light;
 }
 
 export function useIsDark(): boolean {
-  return useColorScheme() === 'dark';
+  return useColorMode() === 'dark';
 }
 
 export function toneColors(c: Colors, tone: Tone): { fg: string; bg: string } {

@@ -49,4 +49,5 @@ export const StorageKeys = {
   biometricLock: 'tavin.biometricLock',
   pushToken: 'tavin.pushToken',
   pushEnabled: 'tavin.pushEnabled',
+  theme: 'tavin.theme',
 } as const;

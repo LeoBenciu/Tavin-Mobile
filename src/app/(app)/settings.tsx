@@ -11,6 +11,7 @@ import {
 import { errorMessage } from '@/api/baseQuery';
 import { canUseBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } from '@/auth/AppLock';
 import { useSession, useUser } from '@/auth/session';
+import { AppearancePicker } from '@/components/AppearancePicker';
 import { Screen } from '@/components/Screen';
 import { Sheet } from '@/components/Sheet';
 import {
@@ -164,6 +165,17 @@ export default function SettingsScreen() {
           {t('Editează profilul', 'Edit profile')}
         </Txt>
       </Card>
+
+      <SectionTitle title={t('Aspect', 'Appearance')} size="small" />
+      <Card padded={false}>
+        <AppearancePicker />
+      </Card>
+      <Txt variant="footnote" tone="muted" style={styles.note}>
+        {t(
+          '„Automat” urmează setarea telefonului: luminos ziua, întunecat seara, dacă așa e setat iPhone-ul.',
+          '“Automatic” follows your phone: light by day, dark at night if that’s how it’s set.',
+        )}
+      </Txt>
 
       <SectionTitle title={t('Securitate', 'Security')} size="small" />
       <Card padded={false}>
@@ -347,5 +359,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minHeight: 54,
   },
+  note: { marginTop: 7, paddingHorizontal: space.lg },
   signOut: { minHeight: 52, alignItems: 'center', justifyContent: 'center' },
 });

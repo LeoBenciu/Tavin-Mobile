@@ -9,20 +9,21 @@ import { Provider } from 'react-redux';
 import { store } from '@/api/store';
 import { SessionProvider, useSession } from '@/auth/session';
 import { LanguageProvider } from '@/i18n';
-import { useColors, useIsDark } from '@/theme';
+import { ThemePreferenceProvider, useColors, useIsDark, useThemePreference } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function RootNavigator() {
   const { status } = useSession();
+  const { ready: themeReady } = useThemePreference();
   const c = useColors();
   const dark = useIsDark();
 
   useEffect(() => {
-    if (status !== 'loading') SplashScreen.hideAsync().catch(() => undefined);
-  }, [status]);
+    if (status !== 'loading' && themeReady) SplashScreen.hideAsync().catch(() => undefined);
+  }, [status, themeReady]);
 
-  if (status === 'loading') return null;
+  if (status === 'loading' || !themeReady) return null;
 
   const base = dark ? DarkTheme : DefaultTheme;
   const theme = {
@@ -57,11 +58,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <Provider store={store}>
-          <LanguageProvider>
-            <SessionProvider>
-              <RootNavigator />
-            </SessionProvider>
-          </LanguageProvider>
+          <ThemePreferenceProvider>
+            <LanguageProvider>
+              <SessionProvider>
+                <RootNavigator />
+              </SessionProvider>
+            </LanguageProvider>
+          </ThemePreferenceProvider>
         </Provider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
