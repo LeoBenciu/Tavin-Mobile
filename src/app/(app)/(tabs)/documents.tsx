@@ -3,49 +3,43 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import {
-  api,
-  useCancelUploadMutation,
-  useDeleteSavedDocumentMutation,
-  useGetDocumentsQuery,
-  useLazyGetDocumentUrlQuery,
-  useLazyGetPendingUploadUrlQuery,
-  useRetryUploadMutation,
-} from '@/api/api';
+import { api, useGetDocumentsQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
-import type { PendingUpload, SavedDocument } from '@/api/types';
 import { TabScreen } from '@/components/LargeTitle';
-import { ActionSheet, type SheetAction } from '@/components/Sheet';
 import {
-  Card,
-  Divider,
   EmptyState,
   ErrorState,
+  FormGroup,
   HeaderButton,
   ListRow,
   Loading,
-  Pill,
   SearchField,
+  SectionTitle,
   Segmented,
   Tap,
   Txt,
 } from '@/components/ui';
+import {
+  folderSummary,
+  groupByMonth,
+  PendingRow,
+  SavedRow,
+  useDocumentActions,
+  useMonthTitle,
+} from '@/features/documents';
 import { useT } from '@/i18n';
-import { confirm, notify } from '@/lib/confirm';
-import { documentTypeLabel, uploadStatus } from '@/lib/domain';
-import { openUrl } from '@/lib/files';
-import { formatDate, formatMoney, formatRelative } from '@/lib/format';
+import { isoDay } from '@/lib/format';
 import { accentGlowStrong, radius, space, tileGradient } from '@/theme';
 
 type Tab = 'inbox' | 'saved';
-type Selected = { kind: 'pending'; item: PendingUpload } | { kind: 'saved'; item: SavedDocument } | null;
 
 export default function DocumentsScreen() {
   const t = useT();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('inbox');
+  const monthName = useMonthTitle();
+  const [tabChoice, setTab] = useState<Tab | null>(null);
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<Selected>(null);
+  const { open, sheet } = useDocumentActions();
 
   // Extraction runs on the server; poll only while something is still processing.
   const { data: cached } = api.endpoints.getDocuments.useQueryState();
@@ -53,11 +47,10 @@ export default function DocumentsScreen() {
     pollingInterval: cached?.pendingUploads.some((u) => u.isProcessing) ? 8000 : 0,
     skipPollingIfUnfocused: true,
   });
-  const [getPendingUrl] = useLazyGetPendingUploadUrlQuery();
-  const [getDocUrl] = useLazyGetDocumentUrlQuery();
-  const [retryUpload] = useRetryUploadMutation();
-  const [cancelUpload] = useCancelUploadMutation();
-  const [deleteSaved] = useDeleteSavedDocumentMutation();
+
+  // With nothing in progress, open on the month folders.
+  const tab: Tab =
+    tabChoice ?? (data && data.pendingUploads.length === 0 && data.savedDocuments.length > 0 ? 'saved' : 'inbox');
 
   const needle = query.trim().toLowerCase();
   const pending = useMemo(
@@ -73,88 +66,9 @@ export default function DocumentsScreen() {
       ),
     [data, needle],
   );
-
-  const run = async (fn: () => Promise<unknown>) => {
-    try {
-      await fn();
-    } catch (e) {
-      notify(t('Eroare', 'Error'), errorMessage(e));
-    }
-  };
-
-  const view = (s: NonNullable<Selected>) =>
-    run(async () => {
-      const res = s.kind === 'pending' ? await getPendingUrl(s.item.id).unwrap() : await getDocUrl(s.item.id).unwrap();
-      await openUrl(res.url);
-    });
-
-  const actions: SheetAction[] = !selected
-    ? []
-    : selected.kind === 'pending'
-      ? [
-          { label: t('Vezi fișierul', 'View file'), icon: 'eye-outline', onPress: () => view(selected) },
-          {
-            label: t('Generează NIR', 'Create goods receipt (NIR)'),
-            icon: 'clipboard-outline',
-            hidden: !(selected.item.isIncomingInvoice && selected.item.isReady),
-            onPress: () =>
-              router.push({ pathname: '/nir', params: { source: 'upload', id: String(selected.item.id) } }),
-          },
-          {
-            label: t('Reîncearcă procesarea', 'Retry processing'),
-            icon: 'refresh',
-            hidden: !selected.item.hasError,
-            onPress: () => run(() => retryUpload(selected.item.id).unwrap()),
-          },
-          {
-            label: t('Anulează încărcarea', 'Cancel upload'),
-            icon: 'trash-outline',
-            tone: 'danger',
-            onPress: async () => {
-              if (
-                await confirm(t('Anulezi încărcarea?', 'Cancel this upload?'), selected.item.fileName, {
-                  destructive: true,
-                })
-              ) {
-                await run(() => cancelUpload(selected.item.id).unwrap());
-              }
-            },
-          },
-        ]
-      : [
-          { label: t('Vezi documentul', 'View document'), icon: 'eye-outline', onPress: () => view(selected) },
-          {
-            label: selected.item.nirDocument
-              ? t('Deschide NIR', 'Open NIR')
-              : t('Generează NIR', 'Create goods receipt (NIR)'),
-            icon: 'clipboard-outline',
-            hidden: !selected.item.isIncomingInvoice,
-            onPress: () =>
-              router.push({ pathname: '/nir', params: { source: 'invoice', id: String(selected.item.id) } }),
-          },
-          {
-            label: t('Șterge documentul', 'Delete document'),
-            icon: 'trash-outline',
-            tone: 'danger',
-            hidden: !!selected.item.isOutgoingInvoice,
-            onPress: async () => {
-              if (
-                await confirm(
-                  t('Ștergi documentul?', 'Delete this document?'),
-                  t(
-                    'Documentul dispare și din lista contabilului.',
-                    'It will also disappear from your accountant’s list.',
-                  ),
-                  { destructive: true, confirmLabel: t('Șterge', 'Delete') },
-                )
-              ) {
-                await run(() => deleteSaved(selected.item.id).unwrap());
-              }
-            },
-          },
-        ];
-
-  const counts = data?.stats;
+  const folders = useMemo(() => groupByMonth(saved), [saved]);
+  const years = useMemo(() => [...new Set(folders.map((f) => f.year))], [folders]);
+  const currentMonth = isoDay().slice(0, 7);
 
   return (
     <TabScreen
@@ -173,15 +87,15 @@ export default function DocumentsScreen() {
           {
             value: 'inbox',
             label: t(
-              `Încărcate${counts ? ` (${data!.pendingUploads.length})` : ''}`,
-              `Uploaded${counts ? ` (${data!.pendingUploads.length})` : ''}`,
+              `În lucru${data ? ` (${data.pendingUploads.length})` : ''}`,
+              `In progress${data ? ` (${data.pendingUploads.length})` : ''}`,
             ),
           },
           {
             value: 'saved',
             label: t(
-              `Înregistrate${counts ? ` (${data!.savedDocuments.length})` : ''}`,
-              `Booked${counts ? ` (${data!.savedDocuments.length})` : ''}`,
+              `Înregistrate${data ? ` (${data.savedDocuments.length})` : ''}`,
+              `Booked${data ? ` (${data.savedDocuments.length})` : ''}`,
             ),
           },
         ]}
@@ -201,72 +115,69 @@ export default function DocumentsScreen() {
         pending.length === 0 ? (
           <EmptyState
             icon="cloud-upload"
-            title={t('Niciun document în lucru', 'Nothing in progress')}
-            message={t(
-              'Fotografiază facturi, bonuri sau extrase și le trimitem direct contabilului.',
-              'Snap invoices, receipts or statements and we send them straight to your accountant.',
-            )}
+            title={needle ? t('Niciun rezultat', 'No results') : t('Niciun document în lucru', 'Nothing in progress')}
+            message={
+              needle
+                ? undefined
+                : t(
+                    'Fotografiază facturi, bonuri sau extrase și le trimitem direct contabilului. După ce le înregistrează, le găsești pe luni, la „Înregistrate”.',
+                    'Snap invoices, receipts or statements and we send them straight to your accountant. Once booked, you find them by month under “Booked”.',
+                  )
+            }
           />
         ) : (
-          <Card padded={false}>
-            {pending.map((u, i) => {
-              const st = uploadStatus(t, u);
-              return (
-                <View key={u.id}>
-                  {i > 0 ? <Divider inset={60} /> : null}
-                  <ListRow
-                    icon={u.contentType?.startsWith('image/') ? 'image' : 'document'}
-                    iconTone={st.tone}
-                    title={u.fileName}
-                    subtitle={u.hasError && u.errorMessage ? u.errorMessage : formatRelative(u.createdAt)}
-                    below={<Pill label={st.label} tone={st.tone} />}
-                    onPress={() => setSelected({ kind: 'pending', item: u })}
-                    chevron={false}
-                  />
-                </View>
-              );
-            })}
-          </Card>
+          <FormGroup inset={60}>
+            {pending.map((u) => (
+              <PendingRow key={u.id} item={u} onPress={() => open({ kind: 'pending', item: u })} />
+            ))}
+          </FormGroup>
         )
       ) : saved.length === 0 ? (
         <EmptyState
           icon="folder-open"
-          title={t('Niciun document înregistrat', 'No booked documents')}
-          message={t(
-            'Documentele apar aici după ce le procesează contabilul.',
-            'Documents show up here once your accountant books them.',
-          )}
+          title={needle ? t('Niciun rezultat', 'No results') : t('Niciun document înregistrat', 'No booked documents')}
+          message={
+            needle
+              ? undefined
+              : t(
+                  'Documentele apar aici, pe luni, după ce le înregistrează contabilul.',
+                  'Documents show up here, by month, once your accountant books them.',
+                )
+          }
         />
+      ) : needle ? (
+        // Searching looks across every month at once.
+        <FormGroup inset={60}>
+          {saved.map((d) => (
+            <SavedRow key={d.id} item={d} onPress={() => open({ kind: 'saved', item: d })} />
+          ))}
+        </FormGroup>
       ) : (
-        <Card padded={false}>
-          {saved.map((d, i) => {
-            const meta = [
-              documentTypeLabel(t, d.type),
-              d.documentInvoiceNumber,
-              d.documentClientName,
-              formatDate(d.documentIssueDate ?? d.createdAt),
-            ]
-              .filter(Boolean)
-              .join(' · ');
-            return (
-              <View key={d.id}>
-                {i > 0 ? <Divider inset={60} /> : null}
-                <ListRow
-                  icon={d.isIncomingInvoice ? 'arrow-down' : d.isOutgoingInvoice ? 'arrow-up' : 'document-text'}
-                  iconTone={d.isIncomingInvoice ? 'warn' : d.isOutgoingInvoice ? 'good' : 'neutral'}
-                  title={d.name}
-                  subtitle={meta}
-                  value={d.documentTotal ? formatMoney(d.documentTotal, d.documentCurrency) : null}
-                  below={
-                    d.nirDocument ? <Pill label={t('NIR generat', 'NIR created')} tone="good" icon="checkmark" /> : null
-                  }
-                  onPress={() => setSelected({ kind: 'saved', item: d })}
-                  chevron={false}
-                />
-              </View>
-            );
-          })}
-        </Card>
+        years.map((year) => (
+          <View key={year}>
+            <SectionTitle title={String(year)} size="small" />
+            <FormGroup inset={60}>
+              {folders
+                .filter((f) => f.year === year)
+                .map((f) => (
+                  <ListRow
+                    key={f.key}
+                    icon={f.key === currentMonth ? 'folder-open' : 'folder'}
+                    iconTone="accent"
+                    solid
+                    title={monthName(f.key)}
+                    subtitle={folderSummary(t, f.docs)}
+                    right={
+                      <Txt tone="muted" tabular>
+                        {f.docs.length}
+                      </Txt>
+                    }
+                    onPress={() => router.push({ pathname: '/folder', params: { month: f.key } })}
+                  />
+                ))}
+            </FormGroup>
+          </View>
+        ))
       )}
       {data && tab === 'inbox' && pending.some((u) => u.isProcessing) ? (
         <Txt variant="footnote" tone="muted" style={styles.note}>
@@ -276,12 +187,7 @@ export default function DocumentsScreen() {
           )}
         </Txt>
       ) : null}
-      <ActionSheet
-        visible={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected ? (selected.kind === 'pending' ? selected.item.fileName : selected.item.name) : undefined}
-        actions={actions}
-      />
+      {sheet}
     </TabScreen>
   );
 }

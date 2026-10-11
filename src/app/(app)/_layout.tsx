@@ -87,6 +87,7 @@ export default function AppLayout() {
         <Stack.Screen name="articles/index" options={{ title: t('Articole', 'Items'), ...large }} />
         <Stack.Screen name="articles/edit" options={{ title: t('Articol', 'Item'), ...modal }} />
         <Stack.Screen name="stock" options={{ title: t('Stocuri', 'Stock'), ...large }} />
+        <Stack.Screen name="folder" options={{ title: t('Documente', 'Documents'), ...large }} />
         <Stack.Screen name="notifications" options={{ title: t('Notificări', 'Notifications'), ...large }} />
         <Stack.Screen name="settings" options={{ title: t('Setări', 'Settings'), ...large }} />
         <Stack.Screen name="firm" options={{ title: t('Sold la contabil', 'Accountant balance'), ...large }} />

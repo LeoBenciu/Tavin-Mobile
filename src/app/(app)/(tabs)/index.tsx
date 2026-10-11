@@ -37,7 +37,6 @@ import {
   Txt,
 } from '@/components/ui';
 import { useT, type Translate } from '@/i18n';
-import { documentTypeLabel } from '@/lib/domain';
 import { daysUntil, formatDate, formatMoneyShort, initials } from '@/lib/format';
 import { gradient, navy, radius, space, useColors, useIsDark } from '@/theme';
 
@@ -312,29 +311,6 @@ export default function HomeScreen() {
                     />
                   </>
                 ) : null}
-              </Card>
-            </>
-          ) : null}
-
-          {dashboard.data && dashboard.data.recentActivity.length > 0 ? (
-            <>
-              <SectionTitle
-                title={t('Activitate recentă', 'Recent activity')}
-                action={{ label: t('Vezi tot', 'See all'), onPress: () => router.push('/documents') }}
-              />
-              <Card padded={false}>
-                {dashboard.data.recentActivity.slice(0, 6).map((a, i) => (
-                  <View key={a.id}>
-                    {i > 0 ? <Divider inset={60} /> : null}
-                    <ListRow
-                      icon="document-text"
-                      iconTone="neutral"
-                      title={a.description}
-                      subtitle={`${documentTypeLabel(t, a.type)} · ${formatDate(a.date)}`}
-                      value={Number(a.amount) ? formatMoneyShort(a.amount) : null}
-                    />
-                  </View>
-                ))}
               </Card>
             </>
           ) : null}

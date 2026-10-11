@@ -3,42 +3,12 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useLanguage, useT, type Language } from '@/i18n';
-import { isoDay } from '@/lib/format';
+import { formatMonth, isoDay } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { space, useColors } from '@/theme';
 import { Sheet } from './Sheet';
 import { Chip, Txt } from './ui';
 
-const MONTHS: Record<Language, string[]> = {
-  ro: [
-    'ianuarie',
-    'februarie',
-    'martie',
-    'aprilie',
-    'mai',
-    'iunie',
-    'iulie',
-    'august',
-    'septembrie',
-    'octombrie',
-    'noiembrie',
-    'decembrie',
-  ],
-  en: [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ],
-};
 const MONTHS_SHORT: Record<Language, string[]> = {
   ro: ['ian.', 'feb.', 'mar.', 'apr.', 'mai', 'iun.', 'iul.', 'aug.', 'sept.', 'oct.', 'nov.', 'dec.'],
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
@@ -119,7 +89,7 @@ export function DateSheet({
         <View style={[styles.calendar, { backgroundColor: c.surface }]}>
           <View style={styles.head}>
             <Txt variant="title" style={{ flex: 1 }}>
-              {`${MONTHS[language][month.m].replace(/^./, (ch) => ch.toUpperCase())} ${month.y}`}
+              {formatMonth(month.y, month.m, language)}
             </Txt>
             <Pressable
               onPress={() => shift(-1)}

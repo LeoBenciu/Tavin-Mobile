@@ -16,18 +16,49 @@ import { useUser } from '@/auth/session';
 import { NAV_BAR_HEIGHT, NavBar } from '@/components/LargeTitle';
 import { useKeyboardVisible, useTabBarSpace } from '@/components/TabBar';
 import { Avatar, EmptyState, ErrorState, Loading, Txt } from '@/components/ui';
-import { useT } from '@/i18n';
+import { formatDay } from '@/components/DateSheet';
+import { useLanguage, useT, type Language, type Translate } from '@/i18n';
 import { notify } from '@/lib/confirm';
-import { formatRelative, initials } from '@/lib/format';
+import { initials, isoDay } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { gradient, space, useColors } from '@/theme';
 
 /** Messages further apart than this start a new group (and show their time). */
 const GROUP_GAP_MS = 10 * 60_000;
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
+function dayKey(ts: string): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function clockTime(ts: string): string {
+  const d = new Date(ts);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+const WEEKDAYS = {
+  ro: ['Duminică', 'Luni', 'Marți', 'Miercuri', 'Joi', 'Vineri', 'Sâmbătă'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+};
+
+/** "Azi", "Ieri", a weekday within the last week, otherwise the date. */
+function dayLabel(ts: string, t: Translate, language: Language): string {
+  const d = new Date(ts);
+  const today = new Date();
+  const start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((start(today) - start(d)) / 86_400_000);
+  if (days <= 0) return t('Azi', 'Today');
+  if (days === 1) return t('Ieri', 'Yesterday');
+  if (days < 7) return WEEKDAYS[language][d.getDay()];
+  return formatDay(isoDay(d), language);
+}
+
 export default function MessagesScreen() {
   const c = useColors();
   const t = useT();
+  const { language } = useLanguage();
   const user = useUser();
   const focused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -86,6 +117,12 @@ export default function MessagesScreen() {
   };
 
   const firmName = conversation?.accountingCompany.name ?? user.accountingCompany.name;
+  const accountants = (conversation?.accountants ?? [])
+    .map((a) => a.name)
+    .filter(Boolean)
+    .join(', ');
+  // Only your newest message carries "Sent" / "Read", as in iMessage.
+  const latestMine = messages.findIndex((m) => m.sender === 'client');
   const canSend = !!text.trim() && !sending && !!accountingClientId;
 
   return (
@@ -126,6 +163,28 @@ export default function MessagesScreen() {
                 />
               </View>
             }
+            ListFooterComponent={
+              // Inverted: the footer sits at the top, above the oldest message.
+              messages.length > 0 ? (
+                <View style={[styles.intro, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+                  <Avatar text={initials(firmName || 'T')} size={56} />
+                  <Txt variant="title" style={styles.center}>
+                    {firmName}
+                  </Txt>
+                  <Txt variant="small" tone="muted" style={styles.center}>
+                    {accountants
+                      ? t(`Contabilul tău · ${accountants}`, `Your accountant · ${accountants}`)
+                      : t('Contabilul tău', 'Your accountant')}
+                  </Txt>
+                  <Txt variant="footnote" tone="muted" style={[styles.center, { marginTop: space.xs }]}>
+                    {t(
+                      'Mesajele ajung direct la ei. Primești o notificare când îți răspund.',
+                      'Messages go straight to them. You get a notification when they reply.',
+                    )}
+                  </Txt>
+                </View>
+              ) : null
+            }
             renderItem={({ item, index }) => {
               const mine = item.sender === 'client';
               // Inverted list: index - 1 is the message under this one, index + 1 the one above.
@@ -133,42 +192,68 @@ export default function MessagesScreen() {
               const above = messages[index + 1];
               const gap = (a?: ChatMessage) =>
                 !a || Math.abs(new Date(a.timestamp).getTime() - new Date(item.timestamp).getTime()) > GROUP_GAP_MS;
+              const startsDay = !above || dayKey(above.timestamp) !== dayKey(item.timestamp);
               const endsGroup = !below || below.sender !== item.sender || gap(below);
-              const startsGroup = !above || above.sender !== item.sender || gap(above);
+              const startsGroup = startsDay || !above || above.sender !== item.sender || gap(above);
+              const status =
+                item.id < 0
+                  ? t('Se trimite…', 'Sending…')
+                  : index === latestMine
+                    ? item.read
+                      ? t('Citit', 'Read')
+                      : t('Trimis', 'Sent')
+                    : null;
               return (
-                <View
-                  style={[
-                    styles.bubbleRow,
-                    mine ? styles.right : styles.left,
-                    { marginTop: startsGroup ? space.md : 2 },
-                  ]}>
-                  {!mine && startsGroup && item.senderName ? (
-                    <Txt variant="caption" tone="muted" weight="600" style={styles.sender}>
-                      {item.senderName}
+                <View>
+                  {startsDay ? (
+                    <Txt variant="caption" tone="muted" weight="600" style={styles.day}>
+                      {dayLabel(item.timestamp, t, language)}
                     </Txt>
                   ) : null}
                   <View
                     style={[
-                      styles.bubble,
-                      mine
-                        ? [
-                            { backgroundColor: c.accent },
-                            gradient('linear-gradient(160deg, #5C74F5, #465FE9)'),
-                            endsGroup ? styles.tailRight : null,
-                          ]
-                        : [{ backgroundColor: c.surface, boxShadow: c.cardShadow }, endsGroup ? styles.tailLeft : null],
+                      styles.messageRow,
+                      mine ? styles.right : styles.left,
+                      { marginTop: startsGroup ? space.md : 2 },
                     ]}>
-                    <Txt tone={mine ? 'onAccent' : 'default'} style={styles.bubbleText}>
-                      {item.content}
-                    </Txt>
+                    {!mine ? (
+                      <View style={styles.avatarSlot}>
+                        {endsGroup ? <Avatar text={initials(item.senderName || firmName || 'T')} size={28} /> : null}
+                      </View>
+                    ) : null}
+                    <View style={[styles.bubbleColumn, mine ? { alignItems: 'flex-end' } : null]}>
+                      {!mine && startsGroup && item.senderName ? (
+                        <Txt variant="caption" tone="muted" weight="600" style={styles.sender}>
+                          {item.senderName}
+                        </Txt>
+                      ) : null}
+                      <View
+                        style={[
+                          styles.bubble,
+                          mine
+                            ? [
+                                { backgroundColor: c.accent },
+                                gradient('linear-gradient(160deg, #5C74F5, #465FE9)'),
+                                endsGroup ? styles.tailRight : null,
+                              ]
+                            : [
+                                { backgroundColor: c.surface, boxShadow: c.cardShadow },
+                                endsGroup ? styles.tailLeft : null,
+                              ],
+                        ]}>
+                        <Txt tone={mine ? 'onAccent' : 'default'} style={styles.bubbleText}>
+                          {item.content}
+                        </Txt>
+                      </View>
+                      {endsGroup || status ? (
+                        <Txt variant="caption" tone="muted" style={styles.time}>
+                          {[endsGroup && item.id >= 0 ? clockTime(item.timestamp) : null, status]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </Txt>
+                      ) : null}
+                    </View>
                   </View>
-                  {endsGroup ? (
-                    <Txt variant="caption" tone="muted" style={[styles.time, mine ? { textAlign: 'right' } : null]}>
-                      {item.id < 0
-                        ? t('se trimite…', 'sending…')
-                        : `${formatRelative(item.timestamp)}${mine && item.read ? ` · ${t('citit', 'read')}` : ''}`}
-                    </Txt>
-                  ) : null}
                 </View>
               );
             }}
@@ -186,7 +271,7 @@ export default function MessagesScreen() {
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder={t('Mesaj', 'Message')}
+            placeholder={t('Scrie-i contabilului…', 'Message your accountant…')}
             placeholderTextColor={c.faint}
             selectionColor={c.accent}
             multiline
@@ -221,7 +306,7 @@ export default function MessagesScreen() {
                 {firmName}
               </Txt>
               <Txt variant="caption" tone="muted" numberOfLines={1}>
-                {t('Contabilul tău', 'Your accountant')}
+                {accountants || t('Contabilul tău', 'Your accountant')}
               </Txt>
             </View>
           </View>
@@ -235,7 +320,12 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   list: { paddingHorizontal: space.lg, flexGrow: 1 },
   emptyWrap: { flex: 1, transform: [{ scaleY: -1 }] },
-  bubbleRow: { maxWidth: '80%' },
+  messageRow: { flexDirection: 'row', alignItems: 'flex-end', gap: space.sm, maxWidth: '86%' },
+  avatarSlot: { width: 28 },
+  bubbleColumn: { flexShrink: 1 },
+  day: { textAlign: 'center', marginTop: space.lg, marginBottom: space.xs },
+  intro: { alignItems: 'center', gap: 4, padding: space.lg, borderRadius: 20, marginTop: space.md },
+  center: { textAlign: 'center' },
   left: { alignSelf: 'flex-start' },
   right: { alignSelf: 'flex-end' },
   sender: { marginLeft: 12, marginBottom: 3 },

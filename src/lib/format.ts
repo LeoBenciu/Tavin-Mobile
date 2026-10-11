@@ -1,4 +1,4 @@
-import { getLanguage } from '@/i18n';
+import { getLanguage, type Language } from '@/i18n';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -104,4 +104,41 @@ export function initials(name: string | null | undefined): string {
     .split(/\s+/)
     .filter(Boolean);
   return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '?';
+}
+
+const MONTH_NAMES: Record<Language, string[]> = {
+  ro: [
+    'ianuarie',
+    'februarie',
+    'martie',
+    'aprilie',
+    'mai',
+    'iunie',
+    'iulie',
+    'august',
+    'septembrie',
+    'octombrie',
+    'noiembrie',
+    'decembrie',
+  ],
+  en: [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ],
+};
+
+/** "Octombrie 2026" / "October 2026" (month is 0-based). */
+export function formatMonth(year: number, month: number, language: Language = getLanguage()): string {
+  const name = MONTH_NAMES[language][month] ?? '';
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${year}`;
 }
