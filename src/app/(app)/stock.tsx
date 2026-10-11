@@ -68,7 +68,11 @@ export default function StockScreen() {
             />
           </View>
           {managements.length > 1 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chipScroll}
+              contentContainerStyle={styles.chips}>
               <Chip
                 label={t('Toate gestiunile', 'All warehouses')}
                 active={managementId == null}
@@ -112,5 +116,7 @@ const styles = StyleSheet.create({
     marginTop: space.md,
   },
   searchInput: { flex: 1, minHeight: 44, fontSize: 15 },
+  // A horizontal ScrollView must not grow vertically inside the page column.
+  chipScroll: { flexGrow: 0 },
   chips: { gap: space.sm, paddingTop: space.md },
 });

@@ -10,6 +10,9 @@ import { useT } from '@/i18n';
 import { APP_VERSION, compareVersions } from '@/lib/config';
 import { space, useColors } from '@/theme';
 
+/** Deep links (notification taps, URLs) land on top of the tabs, so Back always has somewhere to go. */
+export const unstable_settings = { initialRouteName: '(tabs)' };
+
 function UpdateRequired({ storeUrl }: { storeUrl: string | null }) {
   const c = useColors();
   const t = useT();

@@ -118,10 +118,17 @@ export default function HomeScreen() {
                     `${pendingApprovals} invoices are waiting for you`,
                   )
             }
-            message={t(
-              'Confirmă că le recunoști, ca să poată fi înregistrate.',
-              'Confirm you recognise them so they can be booked.',
-            )}
+            message={
+              pendingApprovals === 1
+                ? t(
+                    'Confirmă că o recunoști, ca să poată fi înregistrată.',
+                    'Confirm you recognise it so it can be booked.',
+                  )
+                : t(
+                    'Confirmă că le recunoști, ca să poată fi înregistrate.',
+                    'Confirm you recognise them so they can be booked.',
+                  )
+            }
             onPress={() => router.push('/approvals')}
           />
         ) : null}
@@ -191,7 +198,7 @@ export default function HomeScreen() {
                 />
               ) : (
                 <Kpi
-                  label={t('Profit luna trecută', 'Last month profit')}
+                  label={t('Profit luna aceasta', 'Profit this month')}
                   value={formatMoneyShort(stats.revenue - stats.expenses)}
                 />
               )}
@@ -199,7 +206,7 @@ export default function HomeScreen() {
 
             <Card style={{ marginTop: space.md }} onPress={() => router.push('/reports')}>
               <Txt variant="caption" tone="muted">
-                {t('Luna trecută', 'Last month')}
+                {t('Luna aceasta', 'This month')}
               </Txt>
               <View style={styles.split}>
                 <View style={{ flex: 1 }}>

@@ -84,7 +84,11 @@ export default function BankScreen() {
 
       <SectionTitle title={t('Tranzacții', 'Transactions')} />
       {data.accounts.length > 1 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipScroll}
+          contentContainerStyle={styles.chips}>
           <Chip label={t('Toate', 'All')} active={accountId == null} onPress={() => setAccountId(null)} />
           {data.accounts.map((a) => (
             <Chip key={a.id} label={a.name || a.bank} active={accountId === a.id} onPress={() => setAccountId(a.id)} />
@@ -118,5 +122,7 @@ export default function BankScreen() {
 }
 
 const styles = StyleSheet.create({
+  // A horizontal ScrollView must not grow vertically inside the page column.
+  chipScroll: { flexGrow: 0 },
   chips: { gap: space.sm, paddingBottom: space.md },
 });

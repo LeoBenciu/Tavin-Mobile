@@ -27,6 +27,7 @@ import {
 } from '@/components/ui';
 import { useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
+import { closeTo } from '@/lib/navigation';
 import { ARTICLE_TYPES, articleTypeLabel, isServiceType } from '@/lib/domain';
 import { postForPdf } from '@/lib/files';
 import { formatMoney } from '@/lib/format';
@@ -74,7 +75,7 @@ export default function NirScreen() {
     );
   }
   // Keyed so the editor starts from the NIR the server returned.
-  return <NirEditor key={response.nirDocumentId} response={response} onBack={() => router.back()} />;
+  return <NirEditor key={response.nirDocumentId} response={response} onBack={() => closeTo(router, '/documents')} />;
 }
 
 function NirEditor({ response, onBack }: { response: NirResponse; onBack: () => void }) {

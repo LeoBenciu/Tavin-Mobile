@@ -14,6 +14,7 @@ import { Screen } from '@/components/Screen';
 import { Button, Card, Divider, Txt, type IconName } from '@/components/ui';
 import { useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
+import { closeTo } from '@/lib/navigation';
 import { uploadFile, type LocalFile } from '@/lib/files';
 import { radius, space, useColors } from '@/theme';
 
@@ -116,7 +117,7 @@ export default function ScanScreen() {
           <Button
             title={busy ? t('Se încarcă…', 'Uploading…') : t('Gata', 'Done')}
             disabled={busy}
-            onPress={() => router.back()}
+            onPress={() => closeTo(router, '/documents')}
           />
         ) : undefined
       }>
