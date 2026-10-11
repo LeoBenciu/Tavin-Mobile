@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useMemo, useState, type SetStateAction } from 'react';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import {
   useCreateInvoiceMutation,
@@ -15,24 +15,30 @@ import {
 } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
 import type { Article, NewInvoice, Partner } from '@/api/types';
+import { splitMoney } from '@/components/charts';
+import { DateSheet, formatDay } from '@/components/DateSheet';
 import { Screen } from '@/components/Screen';
 import { PickerSheet, Sheet } from '@/components/Sheet';
 import {
+  Amount,
+  Avatar,
   Banner,
   Button,
   Card,
-  Chip,
   Divider,
-  Field,
+  FormGroup,
+  FormInput,
+  FormRow,
   ListRow,
   Segmented,
   SectionTitle,
-  SelectField,
   ToggleRow,
   Txt,
+  type IconName,
 } from '@/components/ui';
-import { useT } from '@/i18n';
+import { useLanguage, useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
+import { haptic } from '@/lib/haptics';
 import {
   isServiceType,
   lineTotals,
@@ -43,7 +49,7 @@ import {
   VAT_RATES,
   vatRateForArticle,
 } from '@/lib/domain';
-import { addDays, formatMoney, isoDay, isValidIsoDay, parseAmount } from '@/lib/format';
+import { addDays, formatMoney, initials, isoDay, isValidIsoDay, parseAmount } from '@/lib/format';
 import { space, useColors } from '@/theme';
 
 type DocType = 'REGULAR' | 'PROFORMA' | 'AVIZ';
@@ -93,6 +99,7 @@ const newKey = () => `l${Date.now()}-${lineSeq++}`;
 export default function NewInvoiceScreen() {
   const c = useColors();
   const t = useT();
+  const { language } = useLanguage();
   const router = useRouter();
 
   const { data: settings } = useGetInvoiceSettingsQuery();
@@ -113,17 +120,27 @@ export default function NewInvoiceScreen() {
   const [issueDate, setIssueDate] = useState(isoDay());
   const [dueInput, setDueDate] = useState<string | null>(null);
   const [currency, setCurrency] = useState<'RON' | 'EUR' | 'USD'>('RON');
-  const [client, setClient] = useState<ClientInfo>(EMPTY_CLIENT);
-  const [lines, setLines] = useState<Line[]>([]);
+  const [client, setClientState] = useState<ClientInfo>(EMPTY_CLIENT);
+  const [lines, setLinesState] = useState<Line[]>([]);
   const [notes, setNotes] = useState('');
   const [efacturaAutoSubmit, setEfacturaAutoSubmit] = useState(true);
   const [autoEmailInput, setAutoEmail] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Fixing the client or the lines clears a validation error about them.
+  const setClient = (next: SetStateAction<ClientInfo>) => {
+    setError(null);
+    setClientState(next);
+  };
+  const setLines = (next: SetStateAction<Line[]>) => {
+    setError(null);
+    setLinesState(next);
+  };
 
   const [clientPicker, setClientPicker] = useState(false);
   const [clientEditor, setClientEditor] = useState(false);
   const [articlePicker, setArticlePicker] = useState(false);
   const [editingLine, setEditingLine] = useState<string | null>(null);
+  const [datePicker, setDatePicker] = useState<'issue' | 'due' | null>(null);
 
   // Series and next number follow the document type, like the web portal.
   const defaults = useMemo(() => {
@@ -254,6 +271,7 @@ export default function NewInvoiceScreen() {
     const problem = validate();
     if (problem) {
       setError(problem);
+      haptic.warning();
       return;
     }
     setError(null);
@@ -301,27 +319,33 @@ export default function NewInvoiceScreen() {
   };
 
   const lineBeingEdited = lines.find((l) => l.key === editingLine) ?? null;
+  const [totalAmount, totalCurrency] = splitMoney(formatMoney(computed.total, currency));
+  const termDays = daysBetween(issueDate, dueDate);
+  const termLabel =
+    termDays == null || termDays < 0
+      ? ''
+      : termDays === 0
+        ? t(' · la emitere', ' · on issue')
+        : t(` · ${termDays} zile`, ` · ${termDays} days`);
 
   return (
     <Screen
       keyboard
       footer={
-        <View style={styles.footerRow}>
-          <Button
-            title={t('Ciornă', 'Draft')}
-            variant="secondary"
-            onPress={() => submit(true)}
-            disabled={creating}
-            style={{ flex: 1 }}
-          />
-          <Button
-            title={docType === 'REGULAR' ? t('Emite factura', 'Issue invoice') : t('Emite', 'Issue')}
-            icon="send"
-            onPress={() => submit(false)}
-            loading={creating}
-            style={{ flex: 2 }}
-          />
-        </View>
+        <>
+          {/* Errors show by the button that caused them, not at the top of a long form. */}
+          {error ? <Banner tone="danger" icon="alert" title={error} /> : null}
+          <View style={styles.checkout}>
+            <View style={{ flex: 1 }}>
+              <Txt variant="caption" tone="muted" weight="600">
+                {t('Total de plată', 'Total due')}
+              </Txt>
+              <Amount value={totalAmount} currency={totalCurrency} size="heading" />
+            </View>
+            <Button title={t('Ciornă', 'Draft')} variant="secondary" onPress={() => submit(true)} disabled={creating} />
+            <Button title={t('Emite', 'Issue')} icon="send" onPress={() => submit(false)} loading={creating} />
+          </View>
+        </>
       }>
       <Segmented
         value={docType}
@@ -333,16 +357,11 @@ export default function NewInvoiceScreen() {
         ]}
       />
 
-      {error ? (
-        <View style={{ marginTop: space.md }}>
-          <Banner tone="danger" icon="alert-circle" title={error} />
-        </View>
-      ) : null}
       {isNeplatitorTva ? (
         <View style={{ marginTop: space.md }}>
           <Banner
             tone="neutral"
-            icon="information-circle-outline"
+            icon="information"
             title={t('Firmă neplătitoare de TVA', 'Not registered for VAT')}
             message={t('Liniile se emit cu TVA 0%.', 'Lines are issued with 0% VAT.')}
           />
@@ -351,191 +370,186 @@ export default function NewInvoiceScreen() {
 
       <SectionTitle size="small" title={t('Client', 'Client')} />
       {client.name ? (
-        <Card onPress={() => setClientEditor(true)}>
-          <View style={styles.clientRow}>
-            <View style={{ flex: 1 }}>
-              <Txt weight="600">{client.name}</Txt>
-              <Txt variant="small" tone="muted">
-                {[client.ein, client.city, client.county].filter(Boolean).join(' · ')}
+        <Card onPress={() => setClientEditor(true)} style={styles.clientCard}>
+          <Avatar text={initials(client.name)} size={44} />
+          <View style={{ flex: 1, gap: 1 }}>
+            <Txt weight="600" numberOfLines={2}>
+              {client.name}
+            </Txt>
+            <Txt variant="small" tone="muted" numberOfLines={1}>
+              {[client.ein, client.city, client.county].filter(Boolean).join(' · ') ||
+                t('Completează datele clientului', 'Complete the client details')}
+            </Txt>
+            {client.email ? (
+              <Txt variant="small" tone="muted" numberOfLines={1}>
+                {client.email}
               </Txt>
-              {client.email ? (
-                <Txt variant="small" tone="muted">
-                  {client.email}
-                </Txt>
-              ) : null}
-            </View>
-            <Pressable onPress={() => setClientPicker(true)} hitSlop={8}>
-              <Txt variant="small" tone="accent" weight="600">
-                {t('Schimbă', 'Change')}
-              </Txt>
-            </Pressable>
+            ) : null}
           </View>
+          <Button title={t('Schimbă', 'Change')} variant="secondary" size="sm" onPress={() => setClientPicker(true)} />
         </Card>
       ) : (
-        <View style={styles.footerRow}>
-          <Button
-            title={t('Alege client', 'Choose client')}
-            icon="people-outline"
-            variant="secondary"
+        <FormGroup inset={60}>
+          <ListRow
+            icon="people"
+            iconTone="accent"
+            solid
+            title={t('Alege din clienți', 'Choose a saved client')}
+            subtitle={
+              clients.length
+                ? t(`${clients.length} clienți salvați`, `${clients.length} saved clients`)
+                : t('Nu ai încă clienți salvați', 'No saved clients yet')
+            }
             onPress={() => setClientPicker(true)}
-            style={{ flex: 1 }}
           />
-          <Button
+          <ListRow
+            icon="person-add"
+            iconTone="sky"
+            solid
             title={t('Client nou', 'New client')}
-            icon="add"
-            variant="secondary"
+            subtitle={t('Completat automat din CUI, de la ANAF', 'Filled in from the tax ID, via ANAF')}
             onPress={() => {
               setClient(EMPTY_CLIENT);
               setClientEditor(true);
             }}
-            style={{ flex: 1 }}
           />
-        </View>
+        </FormGroup>
       )}
 
       <SectionTitle size="small" title={t('Produse și servicii', 'Items and services')} />
-      {lines.length > 0 ? (
-        <Card padded={false}>
-          {lines.map((l, i) => {
-            const qty = parseAmount(l.quantity) ?? 0;
-            const price = parseAmount(l.unitPrice) ?? 0;
-            const tt = lineTotals({
-              quantity: qty,
-              unitPrice: price,
-              vatRate: isNeplatitorTva ? 0 : l.vatRate,
-              discountPercent: parseAmount(l.discountPercent) ?? 0,
-            });
-            return (
-              <View key={l.key}>
-                {i > 0 ? <Divider inset={space.lg} /> : null}
-                <ListRow
-                  title={l.description || t('Linie fără denumire', 'Untitled line')}
-                  subtitle={`${l.quantity || 0} ${unitLabel(t, l.unitOfMeasure)} × ${formatMoney(price, currency)} · TVA ${isNeplatitorTva ? 0 : l.vatRate}%`}
-                  value={formatMoney(tt.total, currency)}
-                  onPress={() => setEditingLine(l.key)}
-                  numberOfLines={2}
-                />
-              </View>
-            );
-          })}
-        </Card>
-      ) : null}
-      <View style={[styles.footerRow, { marginTop: space.md }]}>
-        <Button
-          title={t('Din articole', 'From items')}
-          icon="pricetags-outline"
-          variant="secondary"
-          size="sm"
+      <FormGroup inset={60}>
+        {lines.map((l) => {
+          const price = parseAmount(l.unitPrice) ?? 0;
+          const tt = lineTotals({
+            quantity: parseAmount(l.quantity) ?? 0,
+            unitPrice: price,
+            vatRate: isNeplatitorTva ? 0 : l.vatRate,
+            discountPercent: parseAmount(l.discountPercent) ?? 0,
+          });
+          const service = isServiceType(l.articleType);
+          return (
+            <ListRow
+              key={l.key}
+              icon={service ? 'construct' : 'cube'}
+              iconTone={service ? 'neutral' : 'accent'}
+              title={l.description || t('Linie fără denumire', 'Untitled line')}
+              titleTone={l.description ? 'default' : 'faint'}
+              subtitle={`${l.quantity || 0} ${unitLabel(t, l.unitOfMeasure)} × ${formatMoney(price, currency)} · TVA ${isNeplatitorTva ? 0 : l.vatRate}%`}
+              value={formatMoney(tt.total, currency)}
+              onPress={() => setEditingLine(l.key)}
+              chevron={false}
+              numberOfLines={2}
+            />
+          );
+        })}
+        <AddRow
+          icon="pricetags"
+          label={t('Adaugă din articole', 'Add from your items')}
           onPress={() => setArticlePicker(true)}
-          style={{ flex: 1 }}
         />
-        <Button
-          title={t('Linie liberă', 'Custom line')}
-          icon="create-outline"
-          variant="secondary"
-          size="sm"
+        <AddRow
+          icon="create"
+          label={t('Adaugă linie liberă', 'Add a custom line')}
           onPress={() => addFreeLine(false)}
-          style={{ flex: 1 }}
         />
-      </View>
+      </FormGroup>
 
       {lines.length > 0 ? (
         <Card style={{ marginTop: space.md }}>
           <View style={styles.totalRow}>
             <Txt tone="soft">{t('Fără TVA', 'Net')}</Txt>
-            <Txt>{formatMoney(computed.net, currency)}</Txt>
+            <Txt tabular>{formatMoney(computed.net, currency)}</Txt>
           </View>
           <View style={styles.totalRow}>
             <Txt tone="soft">TVA</Txt>
-            <Txt>{formatMoney(computed.vat, currency)}</Txt>
+            <Txt tabular>{formatMoney(computed.vat, currency)}</Txt>
           </View>
-          <View style={[styles.totalRow, { marginTop: space.xs }]}>
-            <Txt variant="title" weight="700">
-              {t('Total', 'Total')}
-            </Txt>
-            <Txt variant="heading" tabular>
-              {formatMoney(computed.total, currency)}
-            </Txt>
+          <View style={styles.totalDivider}>
+            <Divider />
+          </View>
+          <View style={styles.totalRow}>
+            <Txt variant="title">{t('Total', 'Total')}</Txt>
+            <Amount value={totalAmount} currency={totalCurrency} size="heading" />
           </View>
         </Card>
       ) : null}
 
       <SectionTitle size="small" title={t('Detalii', 'Details')} />
-      <Card>
-        <View style={styles.twoCol}>
-          <View style={{ flex: 1 }}>
-            <Field label={t('Serie', 'Series')} value={series} onChangeText={setSeries} autoCapitalize="characters" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label={t('Număr', 'Number')} value={number} onChangeText={setNumber} keyboardType="number-pad" />
-          </View>
-        </View>
-        <View style={styles.twoCol}>
-          <View style={{ flex: 1 }}>
-            <Field
-              label={t('Data emiterii', 'Issue date')}
-              value={issueDate}
-              onChangeText={setIssueDate}
-              placeholder="AAAA-LL-ZZ"
-              error={issueDate && !isValidIsoDay(issueDate) ? t('AAAA-LL-ZZ', 'YYYY-MM-DD') : null}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field
-              label={t('Scadența', 'Due date')}
-              value={dueDate}
-              onChangeText={setDueDate}
-              placeholder="AAAA-LL-ZZ"
-              error={dueDate && !isValidIsoDay(dueDate) ? t('AAAA-LL-ZZ', 'YYYY-MM-DD') : null}
-            />
-          </View>
-        </View>
-        <View style={styles.chipRow}>
-          {[0, 15, 30, 60].map((d) => (
-            <Chip
-              key={d}
-              label={d === 0 ? t('La emitere', 'On issue') : t(`${d} zile`, `${d} days`)}
-              active={dueDate === addDays(issueDate, d)}
-              onPress={() => setDueDate(addDays(issueDate, d))}
-            />
-          ))}
-        </View>
-        <Txt variant="small" tone="soft" weight="500" style={{ marginTop: space.md, marginBottom: 6 }}>
-          {t('Monedă', 'Currency')}
-        </Txt>
-        <Segmented
-          value={currency}
-          onChange={setCurrency}
-          options={[
-            { value: 'RON', label: 'RON' },
-            { value: 'EUR', label: 'EUR' },
-            { value: 'USD', label: 'USD' },
-          ]}
+      <FormGroup>
+        <FormRow label={t('Serie', 'Series')}>
+          <FormInput value={series} onChangeText={setSeries} autoCapitalize="characters" autoCorrect={false} />
+        </FormRow>
+        <FormRow label={t('Număr', 'Number')}>
+          <FormInput value={number} onChangeText={setNumber} keyboardType="number-pad" />
+        </FormRow>
+        <FormRow
+          label={t('Data emiterii', 'Issue date')}
+          value={formatDay(issueDate, language)}
+          onPress={() => setDatePicker('issue')}
         />
-        <View style={{ height: space.md }} />
-        <Field label={t('Mențiuni (opțional)', 'Notes (optional)')} value={notes} onChangeText={setNotes} multiline />
-      </Card>
+        <FormRow
+          label={t('Scadența', 'Due date')}
+          value={`${formatDay(dueDate, language)}${termLabel}`}
+          onPress={() => setDatePicker('due')}
+        />
+        <FormRow label={t('Monedă', 'Currency')}>
+          <View style={styles.currency}>
+            <Segmented
+              value={currency}
+              onChange={setCurrency}
+              options={[
+                { value: 'RON', label: 'RON' },
+                { value: 'EUR', label: 'EUR' },
+                { value: 'USD', label: 'USD' },
+              ]}
+            />
+          </View>
+        </FormRow>
+        <FormRow label={t('Mențiuni', 'Notes')} stacked>
+          <FormInput
+            align="left"
+            multiline
+            value={notes}
+            onChangeText={setNotes}
+            placeholder={t('Opțional — apar pe factură', 'Optional — printed on the invoice')}
+          />
+        </FormRow>
+      </FormGroup>
 
       <SectionTitle size="small" title={t('Trimitere', 'Sending')} />
-      <Card padded={false}>
+      <FormGroup inset={60}>
         {docType === 'REGULAR' ? (
           <ToggleRow
-            icon="cloud-upload-outline"
-            title={t('Trimite automat în SPV (e-Factura)', 'Send to SPV automatically (e-Factura)')}
-            subtitle={t('Tavin o încarcă la ANAF după emitere.', 'Tavin uploads it to ANAF after issuing.')}
+            icon="cloud-upload"
+            iconTone="sky"
+            solid
+            title={t('Trimite automat în SPV', 'Send to SPV automatically')}
+            subtitle={t(
+              'e-Factura: Tavin o încarcă la ANAF după emitere',
+              'e-Factura: Tavin uploads it to ANAF after issuing',
+            )}
             value={efacturaAutoSubmit}
             onValueChange={setEfacturaAutoSubmit}
           />
         ) : null}
-        {docType === 'REGULAR' ? <Divider inset={space.lg} /> : null}
         <ToggleRow
-          icon="mail-outline"
+          icon="mail"
+          iconTone="accent"
+          solid
           title={t('Trimite clientului pe email', 'Email it to the client')}
           subtitle={client.email || t('Necesită emailul clientului', 'Needs the client’s email')}
           value={autoEmail}
           onValueChange={setAutoEmail}
         />
-      </Card>
+      </FormGroup>
+
+      <Txt variant="footnote" tone="muted" style={styles.note}>
+        <Ionicons name="lock-closed" size={11} color={c.muted} />{' '}
+        {t(
+          'Documentul se emite pe firma ta, cu datele din Setări → Facturare.',
+          'Issued on your company with the details from Settings → Invoicing.',
+        )}
+      </Txt>
 
       {/* ── Pickers & editors ── */}
       <PickerSheet
@@ -552,6 +566,8 @@ export default function NewInvoiceScreen() {
         footer={
           <ListRow
             icon="person-add"
+            iconTone="sky"
+            solid
             title={t('Client nou', 'New client')}
             subtitle={t('Completezi automat din CUI', 'Autofill from the tax ID')}
             onPress={() => {
@@ -613,6 +629,8 @@ export default function NewInvoiceScreen() {
         footer={
           <ListRow
             icon="construct"
+            iconTone="neutral"
+            solid
             title={t('Serviciu (linie liberă)', 'Service (custom line)')}
             subtitle={t('Fără articol salvat', 'Without a saved item')}
             onPress={() => {
@@ -636,15 +654,99 @@ export default function NewInvoiceScreen() {
           onClose={() => setEditingLine(null)}
         />
       ) : null}
-      <View style={{ height: space.lg }} />
-      <Txt variant="caption" tone="muted" style={{ textAlign: 'center' }}>
-        <Ionicons name="lock-closed-outline" size={11} color={c.muted} />{' '}
-        {t(
-          'Documentul se emite pe firma ta, cu datele din Setări → Facturare.',
-          'Issued on your company with the details from Settings → Invoicing.',
-        )}
-      </Txt>
+      {datePicker ? (
+        <DateSheet
+          title={datePicker === 'issue' ? t('Data emiterii', 'Issue date') : t('Scadența', 'Due date')}
+          value={datePicker === 'issue' ? issueDate : dueDate}
+          onChange={datePicker === 'issue' ? setIssueDate : setDueDate}
+          onClose={() => setDatePicker(null)}
+          shortcuts={
+            datePicker === 'issue'
+              ? [{ label: t('Azi', 'Today'), value: isoDay() }]
+              : DUE_TERMS.map((d) => ({
+                  label: d === 0 ? t('La emitere', 'On issue') : t(`${d} zile`, `${d} days`),
+                  value: addDays(issueDate, d),
+                }))
+          }
+        />
+      ) : null}
     </Screen>
+  );
+}
+
+const DUE_TERMS = [0, 15, 30, 60];
+
+/** Whole days from one calendar day to another, or null if either is invalid. */
+function daysBetween(from: string, to: string): number | null {
+  if (!isValidIsoDay(from) || !isValidIsoDay(to)) return null;
+  const [a, b] = [from, to].map((s) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  });
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** iOS "add" row inside a group: accent plus and label. */
+function AddRow({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+  const c = useColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({ pressed }) => [styles.addRow, pressed && { backgroundColor: c.surfaceAlt }]}>
+      <View style={styles.addIcon}>
+        <Ionicons name="add-circle" size={26} color={c.accentText} />
+      </View>
+      <Txt weight="600" tone="accent" style={{ flex: 1 }}>
+        {label}
+      </Txt>
+      <Ionicons name={icon} size={18} color={c.faint} />
+    </Pressable>
+  );
+}
+
+const formatQty = (n: number) =>
+  Number.isInteger(n) ? String(n) : String(Math.round(n * 1000) / 1000).replace('.', ',');
+
+/** − [ quantity ] + */
+function Stepper({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const c = useColors();
+  const t = useT();
+  const n = parseAmount(value) ?? 0;
+  const step = (delta: number) => {
+    haptic.selection();
+    onChange(formatQty(Math.max(0, n + delta)));
+  };
+  return (
+    <View style={styles.stepper}>
+      <Pressable
+        onPress={() => step(-1)}
+        disabled={n <= 1}
+        hitSlop={4}
+        accessibilityLabel={t('Mai puțin', 'Less')}
+        style={({ pressed }) => [
+          styles.stepButton,
+          { backgroundColor: c.fill },
+          (n <= 1 || pressed) && { opacity: n <= 1 ? 0.35 : 0.6 },
+        ]}>
+        <Ionicons name="remove" size={18} color={c.text} />
+      </Pressable>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        keyboardType="decimal-pad"
+        selectTextOnFocus
+        selectionColor={c.accent}
+        style={[styles.stepInput, { color: c.text }]}
+      />
+      <Pressable
+        onPress={() => step(1)}
+        hitSlop={4}
+        accessibilityLabel={t('Mai mult', 'More')}
+        style={({ pressed }) => [styles.stepButton, { backgroundColor: c.fill }, pressed && { opacity: 0.6 }]}>
+        <Ionicons name="add" size={18} color={c.text} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -665,6 +767,7 @@ function LineEditor({
   onRemove: () => void;
   onClose: () => void;
 }) {
+  const c = useColors();
   const t = useT();
   const [unitPicker, setUnitPicker] = useState(false);
   const [mgmtPicker, setMgmtPicker] = useState(false);
@@ -675,96 +778,105 @@ function LineEditor({
     vatRate: isNeplatitorTva ? 0 : line.vatRate,
     discountPercent: parseAmount(line.discountPercent) ?? 0,
   });
+  const [lineAmount, lineCurrency] = splitMoney(formatMoney(tt.total, currency));
+  // Keep a rate the item already carries selectable even if it is not a current rate.
+  const rates = [...new Set<number>([...VAT_RATES, line.vatRate])];
 
   return (
     <Sheet visible onClose={onClose} title={line.articleId ? t('Articol', 'Item') : t('Linie', 'Line')}>
-      <View style={{ paddingHorizontal: space.lg }}>
-        <Field
-          label={t('Denumire', 'Description')}
-          value={line.description}
-          onChangeText={(v) => onChange({ description: v })}
-          placeholder={t('ex. Consultanță octombrie', 'e.g. October consulting')}
-          autoFocus={!line.description}
-        />
-        <View style={styles.twoCol}>
-          <View style={{ flex: 1 }}>
-            <Field
-              label={t('Cantitate', 'Quantity')}
-              value={line.quantity}
-              onChangeText={(v) => onChange({ quantity: v })}
-              keyboardType="decimal-pad"
+      <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+        <FormGroup>
+          <FormRow label={t('Denumire', 'Description')} stacked>
+            <FormInput
+              align="left"
+              value={line.description}
+              onChangeText={(v) => onChange({ description: v })}
+              placeholder={t('ex. Consultanță octombrie', 'e.g. October consulting')}
+              autoFocus={!line.description}
             />
-          </View>
-          <View style={{ flex: 1 }}>
-            <SelectField
-              label={t('UM', 'Unit')}
-              value={unitLabel(t, line.unitOfMeasure)}
-              placeholder="buc"
-              onPress={() => setUnitPicker(true)}
-            />
-          </View>
-        </View>
-        <View style={styles.twoCol}>
-          <View style={{ flex: 1.4 }}>
-            <Field
-              label={t(`Preț unitar fără TVA (${currency})`, `Unit price excl. VAT (${currency})`)}
+          </FormRow>
+        </FormGroup>
+
+        <FormGroup style={{ marginTop: space.md }}>
+          <FormRow label={t('Cantitate', 'Quantity')}>
+            <View style={styles.fill}>
+              <Stepper value={line.quantity} onChange={(v) => onChange({ quantity: v })} />
+            </View>
+          </FormRow>
+          <FormRow
+            label={t('Unitate de măsură', 'Unit')}
+            value={unitLabel(t, line.unitOfMeasure)}
+            onPress={() => setUnitPicker(true)}
+          />
+          <FormRow label={t('Preț fără TVA', 'Price excl. VAT')}>
+            <FormInput
               value={line.unitPrice}
               onChangeText={(v) => onChange({ unitPrice: v })}
               keyboardType="decimal-pad"
               placeholder="0,00"
             />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field
-              label={t('Discount %', 'Discount %')}
+            <Txt tone="muted">{currency}</Txt>
+          </FormRow>
+          <FormRow label={t('Discount', 'Discount')}>
+            <FormInput
               value={line.discountPercent}
               onChangeText={(v) => onChange({ discountPercent: v })}
               keyboardType="decimal-pad"
               placeholder="0"
             />
-          </View>
-        </View>
-        {!isNeplatitorTva ? (
-          <>
-            <Txt variant="small" tone="soft" weight="500" style={{ marginBottom: 6 }}>
-              {t('Cotă TVA', 'VAT rate')}
-            </Txt>
-            <View style={styles.chipRow}>
-              {VAT_RATES.map((r) => (
-                <Chip key={r} label={`${r}%`} active={line.vatRate === r} onPress={() => onChange({ vatRate: r })} />
-              ))}
-            </View>
-          </>
-        ) : null}
-        {!line.articleId ? (
-          <View style={[styles.chipRow, { marginTop: space.md }]}>
-            <Chip
-              label={t('Marfă / produs', 'Goods / product')}
-              active={!service}
-              onPress={() => onChange({ articleType: 'MARFURI' })}
-            />
-            <Chip
-              label={t('Serviciu', 'Service')}
-              active={service}
-              onPress={() => onChange({ articleType: 'SERVICII_VANDUTE', managementId: undefined })}
-            />
-          </View>
-        ) : null}
-        {!service && managements.length > 0 ? (
-          <View style={{ marginTop: space.md }}>
-            <SelectField
-              label={t('Gestiune (scade din stoc)', 'Warehouse (stock goes out)')}
+            <Txt tone="muted">%</Txt>
+          </FormRow>
+          {!service && managements.length > 0 ? (
+            <FormRow
+              label={t('Gestiune', 'Warehouse')}
               value={managements.find((m) => m.id === line.managementId)?.name ?? null}
               placeholder={t('Prima gestiune', 'First warehouse')}
               onPress={() => setMgmtPicker(true)}
             />
-          </View>
+          ) : null}
+        </FormGroup>
+
+        {!isNeplatitorTva ? (
+          <>
+            <Txt variant="label" tone="muted" style={styles.groupLabel}>
+              {t('Cotă TVA', 'VAT rate')}
+            </Txt>
+            <Segmented
+              value={String(line.vatRate)}
+              onChange={(v) => onChange({ vatRate: Number(v) })}
+              options={rates.map((r) => ({ value: String(r), label: `${r}%` }))}
+            />
+          </>
         ) : null}
-        <View style={[styles.totalRow, { marginTop: space.md }]}>
-          <Txt tone="soft">{t('Total linie', 'Line total')}</Txt>
-          <Txt weight="700">{formatMoney(tt.total, currency)}</Txt>
+        {!line.articleId ? (
+          <>
+            <Txt variant="label" tone="muted" style={styles.groupLabel}>
+              {t('Tip', 'Type')}
+            </Txt>
+            <Segmented
+              value={service ? 'service' : 'goods'}
+              onChange={(v) =>
+                onChange(
+                  v === 'service'
+                    ? { articleType: 'SERVICII_VANDUTE', managementId: undefined }
+                    : { articleType: 'MARFURI' },
+                )
+              }
+              options={[
+                { value: 'goods', label: t('Marfă / produs', 'Goods / product') },
+                { value: 'service', label: t('Serviciu', 'Service') },
+              ]}
+            />
+          </>
+        ) : null}
+
+        <View style={[styles.lineTotal, { backgroundColor: c.accentSoft }]}>
+          <Txt weight="600" tone="accent">
+            {t('Total linie, cu TVA', 'Line total incl. VAT')}
+          </Txt>
+          <Amount value={lineAmount} currency={lineCurrency} size="heading" tone="accent" />
         </View>
-        <View style={[styles.footerRow, { marginTop: space.md }]}>
+        <View style={styles.footerRow}>
           <Button
             title={t('Șterge', 'Remove')}
             variant="danger"
@@ -772,9 +884,9 @@ function LineEditor({
             onPress={onRemove}
             style={{ flex: 1 }}
           />
-          <Button title={t('Gata', 'Done')} onPress={onClose} style={{ flex: 2 }} />
+          <Button title={t('Gata', 'Done')} icon="checkmark" onPress={onClose} style={{ flex: 1.6 }} />
         </View>
-      </View>
+      </ScrollView>
       <PickerSheet
         visible={unitPicker}
         onClose={() => setUnitPicker(false)}
@@ -817,7 +929,7 @@ function ClientEditor({
   const [info, setInfo] = useState<ClientInfo>(initial);
   const [saveToList, setSaveToList] = useState(true);
   const [lookup, { isLoading: looking }] = useLookupCompanyMutation();
-  const [lookupMsg, setLookupMsg] = useState<string | null>(null);
+  const [lookupMsg, setLookupMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const set = (k: keyof ClientInfo, v: string) => setInfo((p) => ({ ...p, [k]: v }));
@@ -825,7 +937,7 @@ function ClientEditor({
   const fromAnaf = async () => {
     const cui = info.ein.replace(/\s/g, '').replace(/^RO/i, '');
     if (!/^\d{2,10}$/.test(cui)) {
-      setLookupMsg(t('CUI-ul are doar cifre (2–10).', 'The tax ID has only digits (2–10).'));
+      setLookupMsg({ text: t('CUI-ul are doar cifre (2–10).', 'The tax ID has only digits (2–10).'), ok: false });
       return;
     }
     const existing = existingClients.find((p) => String(p.ein ?? '').replace(/^RO/i, '') === cui);
@@ -844,12 +956,17 @@ function ClientEditor({
         phone: p.phone || r.phoneNumber || '',
         vatPayer: r.isVatPayer ?? p.vatPayer,
       }));
-      setLookupMsg(t('Date completate de la ANAF.', 'Filled in from ANAF.'));
+      haptic.success();
+      setLookupMsg({ text: t('Date completate de la ANAF.', 'Filled in from ANAF.'), ok: true });
     } catch (e) {
-      setLookupMsg(errorMessage(e, t('Firma nu a fost găsită la ANAF.', 'Company not found at ANAF.')));
+      setLookupMsg({
+        text: errorMessage(e, t('Firma nu a fost găsită la ANAF.', 'Company not found at ANAF.')),
+        ok: false,
+      });
     }
   };
 
+  const LABEL = 118;
   return (
     <Sheet
       visible={visible}
@@ -857,64 +974,96 @@ function ClientEditor({
       title={info.id ? t('Date client', 'Client details') : t('Client nou', 'New client')}
       fullHeight>
       <Screen scroll keyboard insetAdjust={false} contentStyle={{ paddingTop: 0 }}>
-        <Field
-          label={t('CUI', 'Tax ID (CUI)')}
-          value={info.ein}
-          onChangeText={(v) => set('ein', v)}
-          autoCapitalize="characters"
-          placeholder="RO12345678"
-          hint={lookupMsg ?? undefined}
-          right={
-            <Pressable onPress={fromAnaf} style={{ paddingHorizontal: space.md }} hitSlop={6}>
-              <Txt variant="small" tone="accent" weight="600">
-                {looking ? t('Caut…', 'Searching…') : t('Caută ANAF', 'Look up')}
-              </Txt>
-            </Pressable>
-          }
-        />
-        <Field label={t('Denumire', 'Name')} value={info.name} onChangeText={(v) => set('name', v)} />
-        <Field
-          label={t('Nr. Reg. Com.', 'Trade register no.')}
-          value={info.regCom}
-          onChangeText={(v) => set('regCom', v)}
-        />
-        <Field label={t('Adresă', 'Address')} value={info.address} onChangeText={(v) => set('address', v)} />
-        <View style={styles.twoCol}>
-          <View style={{ flex: 1 }}>
-            <Field label={t('Localitate', 'City')} value={info.city} onChangeText={(v) => set('city', v)} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Field label={t('Județ', 'County')} value={info.county} onChangeText={(v) => set('county', v)} />
-          </View>
-        </View>
-        <Field
-          label={t('Email', 'Email')}
-          value={info.email}
-          onChangeText={(v) => set('email', v)}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <Field
-          label={t('Telefon', 'Phone')}
-          value={info.phone}
-          onChangeText={(v) => set('phone', v)}
-          keyboardType="phone-pad"
-        />
+        <FormGroup>
+          <FormRow label="CUI" labelWidth={LABEL}>
+            <FormInput
+              align="left"
+              value={info.ein}
+              onChangeText={(v) => set('ein', v)}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholder="RO12345678"
+              returnKeyType="search"
+              onSubmitEditing={fromAnaf}
+            />
+            <Button
+              title={t('Caută ANAF', 'Look up')}
+              icon="search"
+              variant="secondary"
+              size="sm"
+              loading={looking}
+              onPress={fromAnaf}
+            />
+          </FormRow>
+        </FormGroup>
+        <Txt
+          variant="footnote"
+          tone={lookupMsg ? (lookupMsg.ok ? 'good' : 'danger') : 'muted'}
+          style={styles.lookupNote}>
+          {lookupMsg?.text ??
+            t(
+              'Scrie CUI-ul și caută la ANAF — completăm noi restul.',
+              'Type the tax ID and look it up — we fill in the rest.',
+            )}
+        </Txt>
+
+        <FormGroup style={{ marginTop: space.lg }}>
+          <FormRow label={t('Denumire', 'Name')} labelWidth={LABEL}>
+            <FormInput align="left" value={info.name} onChangeText={(v) => set('name', v)} />
+          </FormRow>
+          <FormRow label={t('Nr. Reg. Com.', 'Trade reg. no.')} labelWidth={LABEL}>
+            <FormInput
+              align="left"
+              value={info.regCom}
+              onChangeText={(v) => set('regCom', v)}
+              placeholder="J12/345/2020"
+            />
+          </FormRow>
+          <FormRow label={t('Adresă', 'Address')} labelWidth={LABEL}>
+            <FormInput align="left" value={info.address} onChangeText={(v) => set('address', v)} />
+          </FormRow>
+          <FormRow label={t('Localitate', 'City')} labelWidth={LABEL}>
+            <FormInput align="left" value={info.city} onChangeText={(v) => set('city', v)} />
+          </FormRow>
+          <FormRow label={t('Județ', 'County')} labelWidth={LABEL}>
+            <FormInput align="left" value={info.county} onChangeText={(v) => set('county', v)} />
+          </FormRow>
+        </FormGroup>
+
+        <FormGroup style={{ marginTop: space.lg }}>
+          <FormRow label={t('Email', 'Email')} labelWidth={LABEL}>
+            <FormInput
+              align="left"
+              value={info.email}
+              onChangeText={(v) => set('email', v)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder={t('pentru trimiterea facturii', 'to send the invoice')}
+            />
+          </FormRow>
+          <FormRow label={t('Telefon', 'Phone')} labelWidth={LABEL}>
+            <FormInput align="left" value={info.phone} onChangeText={(v) => set('phone', v)} keyboardType="phone-pad" />
+          </FormRow>
+        </FormGroup>
+
         {!info.id ? (
-          <Card padded={false} style={{ marginBottom: space.md }}>
+          <FormGroup style={{ marginTop: space.lg }}>
             <ToggleRow
               title={t('Salvează în lista de clienți', 'Save to my clients')}
               value={saveToList}
               onValueChange={setSaveToList}
             />
-          </Card>
+          </FormGroup>
         ) : null}
         <Button
           title={t('Folosește clientul', 'Use this client')}
+          icon="checkmark"
           loading={saving}
+          style={{ marginTop: space.xl }}
           onPress={async () => {
             if (!info.name.trim()) {
-              setLookupMsg(t('Completează denumirea.', 'Enter the name.'));
+              setLookupMsg({ text: t('Completează denumirea.', 'Enter the name.'), ok: false });
               return;
             }
             setSaving(true);
@@ -931,9 +1080,29 @@ function ClientEditor({
 }
 
 const styles = StyleSheet.create({
-  footerRow: { flexDirection: 'row', gap: space.md },
-  twoCol: { flexDirection: 'row', gap: space.md },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
-  clientRow: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
+  checkout: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  clientCard: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: 14 },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
+  totalDivider: { marginVertical: space.sm },
+  currency: { width: 190, marginLeft: 'auto' },
+  note: { textAlign: 'center', marginTop: space.xl, paddingHorizontal: space.lg },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, minHeight: 52 },
+  addIcon: { width: 32, alignItems: 'center' },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  stepButton: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  stepInput: { width: 64, minHeight: 40, fontSize: 17, fontWeight: '600', textAlign: 'center', paddingVertical: 0 },
+  fill: { flex: 1, alignItems: 'flex-end' },
+  sheetBody: { paddingHorizontal: space.lg, paddingBottom: space.sm },
+  groupLabel: { marginTop: space.lg, marginBottom: 7, paddingHorizontal: space.lg },
+  lineTotal: {
+    marginTop: space.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    borderRadius: 16,
+  },
+  footerRow: { flexDirection: 'row', gap: space.md, marginTop: space.lg },
+  lookupNote: { marginTop: 7, paddingHorizontal: space.lg },
 });

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { forwardRef, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
+import { Children, forwardRef, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -765,7 +765,17 @@ export function Segmented<T extends string>({
   );
 }
 
-export function Chip({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
+export function Chip({
+  label,
+  active,
+  onPress,
+  size = 'md',
+}: {
+  label: string;
+  active?: boolean;
+  onPress?: () => void;
+  size?: 'sm' | 'md';
+}) {
   const c = useColors();
   return (
     <Tap
@@ -778,16 +788,132 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
       accessibilityState={{ selected: !!active }}
       style={[
         styles.chip,
+        size === 'sm' && styles.chipSm,
         active
           ? { backgroundColor: c.accent, borderColor: c.accent, boxShadow: accentGlow }
           : { backgroundColor: c.surface, borderColor: c.line },
       ]}>
-      <Txt variant="small" weight="600" tone={active ? 'onAccent' : 'soft'} numberOfLines={1}>
+      <Txt
+        variant={size === 'sm' ? 'footnote' : 'small'}
+        weight="600"
+        tone={active ? 'onAccent' : 'soft'}
+        numberOfLines={1}>
         {label}
       </Txt>
     </Tap>
   );
 }
+
+// ── Grouped forms (iOS Settings / Contacts style) ──
+
+/** A rounded group of form rows with hairlines between them. */
+export function FormGroup({
+  children,
+  style,
+  inset = space.lg,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  /** Where the hairlines start (60 lines them up with text next to icon tiles). */
+  inset?: number;
+}) {
+  const rows = Children.toArray(children).filter(Boolean);
+  return (
+    <Card padded={false} style={style}>
+      {rows.map((row, i) => (
+        <View key={i}>
+          {i > 0 ? <Divider inset={inset} /> : null}
+          {row}
+        </View>
+      ))}
+    </Card>
+  );
+}
+
+/**
+ * One row of a grouped form: the label on the left, the control on the right. With
+ * `onPress` it is a picker row (value + chevron); `stacked` puts the control under the label.
+ */
+export function FormRow({
+  label,
+  children,
+  value,
+  placeholder,
+  onPress,
+  stacked,
+  error,
+  labelWidth,
+}: {
+  label: string;
+  children?: ReactNode;
+  /** For picker rows: the current value, shown on the right. */
+  value?: string | null;
+  placeholder?: string;
+  onPress?: () => void;
+  stacked?: boolean;
+  error?: string | null;
+  /** Fixed label column, for forms whose values are left-aligned (Contacts style). */
+  labelWidth?: number;
+}) {
+  const c = useColors();
+  const body = (
+    <>
+      <View style={[styles.formRow, stacked && styles.formRowStacked]}>
+        <Txt
+          style={stacked ? null : [styles.formLabel, labelWidth ? { width: labelWidth } : null]}
+          tone={stacked ? 'muted' : 'default'}
+          variant={stacked ? 'footnote' : 'body'}
+          weight={stacked ? '600' : '400'}
+          numberOfLines={1}>
+          {label}
+        </Txt>
+        {onPress ? (
+          <>
+            <Txt tone={value ? 'soft' : 'faint'} numberOfLines={1} style={styles.formValue}>
+              {value || placeholder}
+            </Txt>
+            <Ionicons name="chevron-forward" size={17} color={c.faint} />
+          </>
+        ) : (
+          children
+        )}
+      </View>
+      {error ? (
+        <Txt variant="caption" tone="danger" style={styles.formError}>
+          {error}
+        </Txt>
+      ) : null}
+    </>
+  );
+  if (!onPress) return body;
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => (pressed ? { backgroundColor: c.surfaceAlt } : null)}>
+      {body}
+    </Pressable>
+  );
+}
+
+/** Borderless input for a FormRow, right-aligned like iOS form values. */
+export const FormInput = forwardRef<TextInput, TextInputProps & { align?: 'left' | 'right' }>(function FormInput(
+  { align = 'right', style, ...props },
+  ref,
+) {
+  const c = useColors();
+  return (
+    <TextInput
+      ref={ref}
+      placeholderTextColor={c.faint}
+      selectionColor={c.accent}
+      {...props}
+      style={[
+        styles.formInput,
+        { color: c.text, textAlign: align },
+        props.multiline && styles.formInputMultiline,
+        style,
+      ]}
+    />
+  );
+});
 
 // ── Status ──
 
@@ -1096,6 +1222,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     borderWidth: 1,
   },
+  chipSm: { minHeight: 30, paddingHorizontal: 12 },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    minHeight: 50,
+  },
+  formRowStacked: { flexDirection: 'column', alignItems: 'stretch', gap: 2, paddingTop: 10, paddingBottom: 4 },
+  formLabel: { flexShrink: 0, maxWidth: '55%' },
+  formValue: { flex: 1, textAlign: 'right' },
+  formError: { paddingHorizontal: space.lg, marginTop: -6, paddingBottom: 8, textAlign: 'right' },
+  formInput: { flex: 1, minWidth: 0, minHeight: 48, fontSize: 17, paddingVertical: 0 },
+  formInputMultiline: { minHeight: 72, paddingTop: 4, paddingBottom: 10, textAlignVertical: 'top' },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

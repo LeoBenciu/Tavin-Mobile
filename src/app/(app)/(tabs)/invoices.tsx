@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -7,6 +8,7 @@ import { useGetInvoicesQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
 import type { IssuedInvoiceListItem } from '@/api/types';
 import { LARGE_TITLE_HEIGHT, LargeTitle, NAV_BAR_HEIGHT, NavBar, useCollapsingTitle } from '@/components/LargeTitle';
+import { ActionSheet } from '@/components/Sheet';
 import { useTabBarSpace } from '@/components/TabBar';
 import {
   Chip,
@@ -17,6 +19,7 @@ import {
   Pill,
   SearchField,
   StatStrip,
+  Tap,
   Txt,
 } from '@/components/ui';
 import { useT } from '@/i18n';
@@ -38,6 +41,7 @@ export default function InvoicesScreen() {
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [pages, setPages] = useState(1);
+  const [typeMenu, setTypeMenu] = useState(false);
 
   useEffect(() => {
     const h = setTimeout(() => {
@@ -70,6 +74,7 @@ export default function InvoicesScreen() {
     { value: 'CREDIT_NOTE', label: t('Storno', 'Credit notes') },
   ];
 
+  const activeType = invoiceType ? typeFilters.find((f) => f.value === invoiceType) : undefined;
   const invoices = data?.invoices ?? [];
   const canLoadMore = !!data && invoices.length < data.total;
 
@@ -93,17 +98,41 @@ export default function InvoicesScreen() {
           ]}
         />
       ) : null}
-      <SearchField
-        value={search}
-        onChangeText={setSearch}
-        placeholder={t('Caută client sau număr', 'Search client or number')}
-        style={{ marginTop: space.md }}
-      />
+      <View style={styles.searchRow}>
+        <SearchField
+          value={search}
+          onChangeText={setSearch}
+          placeholder={t('Caută client sau număr', 'Search client or number')}
+          style={{ flex: 1 }}
+        />
+        <HeaderButton
+          icon={invoiceType ? 'funnel' : 'funnel-outline'}
+          tone={invoiceType ? 'accent' : 'plain'}
+          label={t('Tip document', 'Document type')}
+          onPress={() => setTypeMenu(true)}
+        />
+      </View>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.chipScroll}
         contentContainerStyle={styles.chips}>
+        {activeType ? (
+          <Tap
+            onPress={() => {
+              setInvoiceType(undefined);
+              setPages(1);
+            }}
+            scaleTo={0.95}
+            accessibilityRole="button"
+            accessibilityLabel={t(`Scoate filtrul ${activeType.label}`, `Remove the ${activeType.label} filter`)}
+            style={[styles.typeChip, { backgroundColor: c.accentSoft, borderColor: c.accentLine }]}>
+            <Txt variant="small" weight="600" tone="accent">
+              {activeType.label}
+            </Txt>
+            <Ionicons name="close-circle" size={16} color={c.accentText} />
+          </Tap>
+        ) : null}
         {statusFilters.map((f) => (
           <Chip
             key={f.label}
@@ -111,23 +140,6 @@ export default function InvoicesScreen() {
             active={status === f.value}
             onPress={() => {
               setStatus(f.value);
-              setPages(1);
-            }}
-          />
-        ))}
-      </ScrollView>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.chipScroll}
-        contentContainerStyle={[styles.chips, { paddingTop: 0, paddingBottom: space.md }]}>
-        {typeFilters.map((f) => (
-          <Chip
-            key={f.label}
-            label={f.label}
-            active={invoiceType === f.value}
-            onPress={() => {
-              setInvoiceType(f.value);
               setPages(1);
             }}
           />
@@ -236,6 +248,19 @@ export default function InvoicesScreen() {
         }
         ListFooterComponent={canLoadMore ? <Loading /> : null}
       />
+      <ActionSheet
+        visible={typeMenu}
+        onClose={() => setTypeMenu(false)}
+        title={t('Tip document', 'Document type')}
+        actions={typeFilters.map((f) => ({
+          label: f.label,
+          icon: invoiceType === f.value ? 'checkmark-circle' : 'ellipse-outline',
+          onPress: () => {
+            setInvoiceType(f.value);
+            setPages(1);
+          },
+        }))}
+      />
       <NavBar
         title={t('Facturi', 'Invoices')}
         scrollY={scrollY}
@@ -258,6 +283,17 @@ const styles = StyleSheet.create({
   // A horizontal ScrollView must not grow vertically inside the page column.
   chipScroll: { flexGrow: 0, marginHorizontal: -space.lg },
   chips: { gap: space.sm, paddingVertical: space.md, paddingHorizontal: space.lg },
+  typeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 34,
+    paddingLeft: 14,
+    paddingRight: 10,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+  },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.md },
   row: { paddingHorizontal: space.lg, paddingVertical: 12, gap: 5 },
   rowFirst: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
   rowLast: { borderBottomLeftRadius: radius.lg, borderBottomRightRadius: radius.lg },
