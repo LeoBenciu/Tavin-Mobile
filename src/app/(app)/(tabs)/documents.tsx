@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import {
   api,
@@ -14,21 +14,33 @@ import {
 } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
 import type { PendingUpload, SavedDocument } from '@/api/types';
-import { Screen } from '@/components/Screen';
+import { TabScreen } from '@/components/LargeTitle';
 import { ActionSheet, type SheetAction } from '@/components/Sheet';
-import { Card, Divider, EmptyState, ErrorState, Fab, ListRow, Loading, Pill, Segmented, Txt } from '@/components/ui';
+import {
+  Card,
+  Divider,
+  EmptyState,
+  ErrorState,
+  HeaderButton,
+  ListRow,
+  Loading,
+  Pill,
+  SearchField,
+  Segmented,
+  Tap,
+  Txt,
+} from '@/components/ui';
 import { useT } from '@/i18n';
 import { confirm, notify } from '@/lib/confirm';
 import { documentTypeLabel, uploadStatus } from '@/lib/domain';
 import { openUrl } from '@/lib/files';
 import { formatDate, formatMoney, formatRelative } from '@/lib/format';
-import { radius, space, useColors } from '@/theme';
+import { accentGlowStrong, radius, space, tileGradient } from '@/theme';
 
 type Tab = 'inbox' | 'saved';
 type Selected = { kind: 'pending'; item: PendingUpload } | { kind: 'saved'; item: SavedDocument } | null;
 
 export default function DocumentsScreen() {
-  const c = useColors();
   const t = useT();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('inbox');
@@ -145,158 +157,176 @@ export default function DocumentsScreen() {
   const counts = data?.stats;
 
   return (
-    <View style={{ flex: 1 }}>
-      <Screen refreshing={isFetching && !isLoading} onRefresh={refetch} contentStyle={{ paddingBottom: 96 }}>
-        <Segmented
-          value={tab}
-          onChange={setTab}
-          options={[
-            {
-              value: 'inbox',
-              label: t(
-                `Încărcate${counts ? ` (${data!.pendingUploads.length})` : ''}`,
-                `Uploaded${counts ? ` (${data!.pendingUploads.length})` : ''}`,
-              ),
-            },
-            {
-              value: 'saved',
-              label: t(
-                `Înregistrate${counts ? ` (${data!.savedDocuments.length})` : ''}`,
-                `Booked${counts ? ` (${data!.savedDocuments.length})` : ''}`,
-              ),
-            },
-          ]}
-        />
-        <View style={[styles.search, { backgroundColor: c.surface, borderColor: c.line }]}>
-          <Ionicons name="search" size={18} color={c.muted} />
-          <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder={t('Caută după nume, număr, partener', 'Search by name, number, partner')}
-            placeholderTextColor={c.muted}
-            style={[styles.searchInput, { color: c.text }]}
-          />
-        </View>
+    <TabScreen
+      title={t('Documente', 'Documents')}
+      refreshing={isFetching && !isLoading}
+      onRefresh={refetch}
+      actions={
+        <HeaderButton icon="camera" tone="accent" label={t('Scanează', 'Scan')} onPress={() => router.push('/scan')} />
+      }>
+      <SnapTile onPress={() => router.push('/scan')} />
+      <Segmented
+        value={tab}
+        onChange={setTab}
+        style={{ marginTop: space.lg }}
+        options={[
+          {
+            value: 'inbox',
+            label: t(
+              `Încărcate${counts ? ` (${data!.pendingUploads.length})` : ''}`,
+              `Uploaded${counts ? ` (${data!.pendingUploads.length})` : ''}`,
+            ),
+          },
+          {
+            value: 'saved',
+            label: t(
+              `Înregistrate${counts ? ` (${data!.savedDocuments.length})` : ''}`,
+              `Booked${counts ? ` (${data!.savedDocuments.length})` : ''}`,
+            ),
+          },
+        ]}
+      />
+      <SearchField
+        value={query}
+        onChangeText={setQuery}
+        placeholder={t('Caută nume, număr, partener', 'Search name, number, partner')}
+        style={styles.search}
+      />
 
-        {isLoading ? (
-          <Loading />
-        ) : error && !data ? (
-          <ErrorState message={errorMessage(error)} onRetry={refetch} />
-        ) : tab === 'inbox' ? (
-          pending.length === 0 ? (
-            <EmptyState
-              icon="cloud-upload-outline"
-              title={t('Niciun document în lucru', 'Nothing in progress')}
-              message={t(
-                'Fotografiază facturi, bonuri sau extrase și le trimitem direct contabilului.',
-                'Snap invoices, receipts or statements and we send them straight to your accountant.',
-              )}
-              action={{
-                label: t('Scanează un document', 'Scan a document'),
-                icon: 'camera',
-                onPress: () => router.push('/scan'),
-              }}
-            />
-          ) : (
-            <Card padded={false}>
-              {pending.map((u, i) => {
-                const st = uploadStatus(t, u);
-                return (
-                  <View key={u.id}>
-                    {i > 0 ? <Divider inset={64} /> : null}
-                    <ListRow
-                      icon={u.contentType?.startsWith('image/') ? 'image-outline' : 'document-outline'}
-                      iconTone={st.tone}
-                      title={u.fileName}
-                      subtitle={u.hasError && u.errorMessage ? u.errorMessage : formatRelative(u.createdAt)}
-                      right={<Pill label={st.label} tone={st.tone} />}
-                      onPress={() => setSelected({ kind: 'pending', item: u })}
-                      chevron={false}
-                    />
-                  </View>
-                );
-              })}
-            </Card>
-          )
-        ) : saved.length === 0 ? (
+      {isLoading ? (
+        <Loading />
+      ) : error && !data ? (
+        <ErrorState message={errorMessage(error)} onRetry={refetch} />
+      ) : tab === 'inbox' ? (
+        pending.length === 0 ? (
           <EmptyState
-            icon="folder-open-outline"
-            title={t('Niciun document înregistrat', 'No booked documents')}
+            icon="cloud-upload"
+            title={t('Niciun document în lucru', 'Nothing in progress')}
             message={t(
-              'Documentele apar aici după ce le procesează contabilul.',
-              'Documents show up here once your accountant books them.',
+              'Fotografiază facturi, bonuri sau extrase și le trimitem direct contabilului.',
+              'Snap invoices, receipts or statements and we send them straight to your accountant.',
             )}
           />
         ) : (
           <Card padded={false}>
-            {saved.map((d, i) => {
-              const meta = [
-                documentTypeLabel(t, d.type),
-                d.documentInvoiceNumber,
-                d.documentClientName,
-                formatDate(d.documentIssueDate ?? d.createdAt),
-              ]
-                .filter(Boolean)
-                .join(' · ');
+            {pending.map((u, i) => {
+              const st = uploadStatus(t, u);
               return (
-                <View key={d.id}>
-                  {i > 0 ? <Divider inset={64} /> : null}
+                <View key={u.id}>
+                  {i > 0 ? <Divider inset={60} /> : null}
                   <ListRow
-                    icon={
-                      d.isIncomingInvoice
-                        ? 'arrow-down-outline'
-                        : d.isOutgoingInvoice
-                          ? 'arrow-up-outline'
-                          : 'document-text-outline'
-                    }
-                    iconTone={d.isIncomingInvoice ? 'warn' : d.isOutgoingInvoice ? 'good' : 'neutral'}
-                    title={d.name}
-                    subtitle={meta}
-                    value={d.documentTotal ? formatMoney(d.documentTotal, d.documentCurrency) : null}
-                    onPress={() => setSelected({ kind: 'saved', item: d })}
+                    icon={u.contentType?.startsWith('image/') ? 'image' : 'document'}
+                    iconTone={st.tone}
+                    title={u.fileName}
+                    subtitle={u.hasError && u.errorMessage ? u.errorMessage : formatRelative(u.createdAt)}
+                    below={<Pill label={st.label} tone={st.tone} />}
+                    onPress={() => setSelected({ kind: 'pending', item: u })}
                     chevron={false}
                   />
-                  {d.nirDocument ? (
-                    <View style={styles.nirTag}>
-                      <Pill label={t('NIR generat', 'NIR created')} tone="good" icon="checkmark" />
-                    </View>
-                  ) : null}
                 </View>
               );
             })}
           </Card>
-        )}
-        {data && tab === 'inbox' && pending.some((u) => u.isProcessing) ? (
-          <Txt variant="caption" tone="muted" style={styles.note}>
-            {t(
-              'Extragem automat datele — durează de obicei sub un minut.',
-              'We extract the data automatically — usually under a minute.',
-            )}
-          </Txt>
-        ) : null}
-      </Screen>
-      <Fab icon="camera" label={t('Scanează', 'Scan')} onPress={() => router.push('/scan')} />
+        )
+      ) : saved.length === 0 ? (
+        <EmptyState
+          icon="folder-open"
+          title={t('Niciun document înregistrat', 'No booked documents')}
+          message={t(
+            'Documentele apar aici după ce le procesează contabilul.',
+            'Documents show up here once your accountant books them.',
+          )}
+        />
+      ) : (
+        <Card padded={false}>
+          {saved.map((d, i) => {
+            const meta = [
+              documentTypeLabel(t, d.type),
+              d.documentInvoiceNumber,
+              d.documentClientName,
+              formatDate(d.documentIssueDate ?? d.createdAt),
+            ]
+              .filter(Boolean)
+              .join(' · ');
+            return (
+              <View key={d.id}>
+                {i > 0 ? <Divider inset={60} /> : null}
+                <ListRow
+                  icon={d.isIncomingInvoice ? 'arrow-down' : d.isOutgoingInvoice ? 'arrow-up' : 'document-text'}
+                  iconTone={d.isIncomingInvoice ? 'warn' : d.isOutgoingInvoice ? 'good' : 'neutral'}
+                  title={d.name}
+                  subtitle={meta}
+                  value={d.documentTotal ? formatMoney(d.documentTotal, d.documentCurrency) : null}
+                  below={
+                    d.nirDocument ? <Pill label={t('NIR generat', 'NIR created')} tone="good" icon="checkmark" /> : null
+                  }
+                  onPress={() => setSelected({ kind: 'saved', item: d })}
+                  chevron={false}
+                />
+              </View>
+            );
+          })}
+        </Card>
+      )}
+      {data && tab === 'inbox' && pending.some((u) => u.isProcessing) ? (
+        <Txt variant="footnote" tone="muted" style={styles.note}>
+          {t(
+            'Extragem automat datele — durează de obicei sub un minut.',
+            'We extract the data automatically — usually under a minute.',
+          )}
+        </Txt>
+      ) : null}
       <ActionSheet
         visible={!!selected}
         onClose={() => setSelected(null)}
         title={selected ? (selected.kind === 'pending' ? selected.item.fileName : selected.item.name) : undefined}
         actions={actions}
       />
-    </View>
+    </TabScreen>
+  );
+}
+
+/** "Snap a receipt" — the indigo tile from the landing page's phone (.lp-portal-snap). */
+function SnapTile({ onPress }: { onPress: () => void }) {
+  const t = useT();
+  return (
+    <Tap onPress={onPress} scaleTo={0.98} style={[styles.snap, tileGradient('accent', 135)]} accessibilityRole="button">
+      <View style={styles.snapIcon}>
+        <Ionicons name="camera" size={22} color="#FFFFFF" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.snapTitle}>{t('Fă o poză la un bon', 'Snap a receipt')}</Text>
+        <Text style={styles.snapText}>
+          {t(
+            'Ajunge direct la contabil, iar datele se extrag singure',
+            'It goes straight to your accountant, data read for you',
+          )}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.8)" />
+    </Tap>
   );
 }
 
 const styles = StyleSheet.create({
-  search: {
+  snap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.md,
-    paddingHorizontal: space.md,
-    marginVertical: space.md,
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.lg,
+    boxShadow: accentGlowStrong,
   },
-  searchInput: { flex: 1, minHeight: 44, fontSize: 15 },
-  nirTag: { paddingLeft: 64, paddingBottom: space.md, marginTop: -space.sm },
+  snapIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  },
+  snapTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+  snapText: { color: '#DFE4FF', fontSize: 13, lineHeight: 18, marginTop: 1 },
+  search: { marginTop: space.md, marginBottom: space.lg },
   note: { textAlign: 'center', marginTop: space.md },
 });

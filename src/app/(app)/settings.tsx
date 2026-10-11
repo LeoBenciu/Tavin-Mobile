@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   useChangePasswordMutation,
@@ -13,16 +13,30 @@ import { canUseBiometrics, isBiometricLockEnabled, setBiometricLockEnabled } fro
 import { useSession, useUser } from '@/auth/session';
 import { Screen } from '@/components/Screen';
 import { Sheet } from '@/components/Sheet';
-import { Button, Card, Divider, Field, ListRow, Segmented, SectionTitle, ToggleRow, Txt } from '@/components/ui';
+import {
+  Avatar,
+  Button,
+  Card,
+  Divider,
+  Field,
+  IconTile,
+  ListRow,
+  Segmented,
+  SectionTitle,
+  ToggleRow,
+  Txt,
+} from '@/components/ui';
 import { getPushRegistration, isPushEnabledByUser, setPushEnabledByUser } from '@/features/push';
 import { useLanguage, useT } from '@/i18n';
 import { APP_VERSION, WEB_APP_URL } from '@/lib/config';
 import { confirm, notify } from '@/lib/confirm';
 import { openUrl } from '@/lib/files';
+import { initials } from '@/lib/format';
 import { storage, StorageKeys } from '@/lib/storage';
-import { space } from '@/theme';
+import { space, useColors } from '@/theme';
 
 export default function SettingsScreen() {
+  const c = useColors();
   const t = useT();
   const user = useUser();
   const { signOut, updateUser } = useSession();
@@ -138,97 +152,128 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <SectionTitle title={t('Profil', 'Profile')} />
+      <Card style={styles.profile} onPress={() => setProfileOpen(true)}>
+        <Avatar text={initials(user.name)} size={64} />
+        <Txt variant="heading" style={{ marginTop: space.md, textAlign: 'center' }} numberOfLines={1}>
+          {user.name}
+        </Txt>
+        <Txt variant="small" tone="muted" numberOfLines={1}>
+          {user.email}
+        </Txt>
+        <Txt variant="footnote" tone="accent" weight="600" style={{ marginTop: space.sm }}>
+          {t('Editează profilul', 'Edit profile')}
+        </Txt>
+      </Card>
+
+      <SectionTitle title={t('Securitate', 'Security')} size="small" />
       <Card padded={false}>
-        <ListRow icon="person-outline" title={user.name} subtitle={user.email} onPress={() => setProfileOpen(true)} />
-        <Divider inset={64} />
         <ListRow
-          icon="key-outline"
+          icon="key"
+          iconTone="slate"
+          solid
           title={t('Schimbă parola', 'Change password')}
           onPress={() => setPasswordOpen(true)}
         />
-      </Card>
-
-      <SectionTitle title={t('Firma', 'Company')} />
-      <Card padded={false}>
-        <ListRow
-          icon="business-outline"
-          title={user.clientCompany.name}
-          subtitle={profile ? `CUI ${profile.clientCompany.ein}` : undefined}
-          chevron={false}
-        />
-        <Divider inset={64} />
-        <ListRow
-          icon="briefcase-outline"
-          title={user.accountingCompany.name}
-          subtitle={t('Contabilul tău', 'Your accountant')}
-          chevron={false}
-        />
-      </Card>
-
-      <SectionTitle title={t('Aplicație', 'App')} />
-      <Card>
-        <Txt variant="small" tone="soft" weight="500" style={{ marginBottom: 6 }}>
-          {t('Limbă', 'Language')}
-        </Txt>
-        <Segmented
-          value={language}
-          onChange={setLanguage}
-          options={[
-            { value: 'ro', label: 'Română' },
-            { value: 'en', label: 'English' },
-          ]}
-        />
-      </Card>
-      <Card padded={false} style={{ marginTop: space.md }}>
-        {Platform.OS !== 'web' ? (
-          <ToggleRow
-            icon="notifications-outline"
-            title={t('Notificări push', 'Push notifications')}
-            subtitle={t('Mesaje, facturi de confirmat, sarcini', 'Messages, invoices to confirm, tasks')}
-            value={push}
-            onValueChange={togglePush}
-          />
-        ) : null}
         {biometricAvailable ? (
           <>
-            <Divider inset={64} />
+            <Divider inset={60} />
             <ToggleRow
               icon="finger-print"
-              title={t('Blocare cu Face ID / amprentă', 'Lock with Face ID / fingerprint')}
+              iconTone="good"
+              solid
+              title={t('Face ID / amprentă', 'Face ID / fingerprint')}
               subtitle={t('Cere deblocarea la deschiderea aplicației', 'Ask to unlock when the app opens')}
               value={biometric}
               onValueChange={toggleBiometric}
             />
           </>
         ) : null}
-        <Divider inset={64} />
+      </Card>
+
+      <SectionTitle title={t('Firma', 'Company')} size="small" />
+      <Card padded={false}>
         <ListRow
-          icon="globe-outline"
+          icon="business"
+          iconTone="sky"
+          solid
+          title={user.clientCompany.name}
+          subtitle={profile ? `CUI ${profile.clientCompany.ein}` : undefined}
+          chevron={false}
+        />
+        <Divider inset={60} />
+        <ListRow
+          icon="briefcase"
+          iconTone="violet"
+          solid
+          title={user.accountingCompany.name}
+          subtitle={t('Contabilul tău', 'Your accountant')}
+          chevron={false}
+        />
+      </Card>
+
+      <SectionTitle title={t('Aplicație', 'App')} size="small" />
+      <Card padded={false}>
+        {Platform.OS !== 'web' ? (
+          <>
+            <ToggleRow
+              icon="notifications"
+              iconTone="danger"
+              solid
+              title={t('Notificări push', 'Push notifications')}
+              subtitle={t('Mesaje, facturi de confirmat, sarcini', 'Messages, invoices to confirm, tasks')}
+              value={push}
+              onValueChange={togglePush}
+            />
+            <Divider inset={60} />
+          </>
+        ) : null}
+        <View style={styles.languageRow}>
+          <IconTile icon="language" tone="accent" solid />
+          <Txt weight="500" style={{ flex: 1 }}>
+            {t('Limbă', 'Language')}
+          </Txt>
+          <View style={{ width: 150 }}>
+            <Segmented
+              value={language}
+              onChange={setLanguage}
+              options={[
+                { value: 'ro', label: 'Română' },
+                { value: 'en', label: 'English' },
+              ]}
+            />
+          </View>
+        </View>
+        <Divider inset={60} />
+        <ListRow
+          icon="globe"
+          iconTone="sky"
+          solid
           title={t('Portalul web', 'Web portal')}
           subtitle="tavin.eu"
           onPress={() => openUrl(WEB_APP_URL)}
         />
       </Card>
 
-      <Button
-        title={t('Deconectare', 'Sign out')}
-        variant="danger"
-        icon="log-out-outline"
-        style={{ marginTop: space.xl }}
-        onPress={async () => {
-          if (
-            await confirm(
-              t('Te deconectezi?', 'Sign out?'),
-              t('Nu vei mai primi notificări pe acest telefon.', 'This phone will stop receiving notifications.'),
-              { confirmLabel: t('Deconectare', 'Sign out') },
-            )
-          ) {
-            await signOut();
-          }
-        }}
-      />
-      <Txt variant="caption" tone="muted" style={{ textAlign: 'center', marginTop: space.lg }}>
+      <Card padded={false} style={{ marginTop: space.xl }}>
+        <Pressable
+          onPress={async () => {
+            if (
+              await confirm(
+                t('Te deconectezi?', 'Sign out?'),
+                t('Nu vei mai primi notificări pe acest telefon.', 'This phone will stop receiving notifications.'),
+                { confirmLabel: t('Deconectare', 'Sign out') },
+              )
+            ) {
+              await signOut();
+            }
+          }}
+          style={({ pressed }) => [styles.signOut, pressed && { backgroundColor: c.surfaceAlt }]}>
+          <Txt weight="600" tone="danger">
+            {t('Deconectare', 'Sign out')}
+          </Txt>
+        </Pressable>
+      </Card>
+      <Txt variant="footnote" tone="faint" style={{ textAlign: 'center', marginTop: space.lg }}>
         Tavin {APP_VERSION}
       </Txt>
 
@@ -291,3 +336,16 @@ export default function SettingsScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  profile: { alignItems: 'center', paddingVertical: space.xl },
+  languageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: 10,
+    minHeight: 54,
+  },
+  signOut: { minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+});

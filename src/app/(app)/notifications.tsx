@@ -13,19 +13,20 @@ import { Card, Divider, EmptyState, ErrorState, ListRow, Loading, Txt, type Icon
 import { useT } from '@/i18n';
 import { formatRelative } from '@/lib/format';
 import { appRouteForLink } from '@/lib/links';
-import { space } from '@/theme';
+import { space, useColors, type TileTone } from '@/theme';
 
-function iconFor(type: string): IconName {
-  if (type.includes('MESSAGE')) return 'chatbubble-outline';
-  if (type.includes('CONFIRMATION')) return 'shield-checkmark-outline';
-  if (type.includes('TASK')) return 'checkbox-outline';
-  if (type.includes('PAYROLL')) return 'people-outline';
-  if (type.includes('ANAF') || type.includes('SPV')) return 'cloud-outline';
-  if (type.includes('DOCUMENT') || type.includes('KYC')) return 'document-text-outline';
-  return 'notifications-outline';
+function iconFor(type: string): { icon: IconName; tone: TileTone } {
+  if (type.includes('MESSAGE')) return { icon: 'chatbubble', tone: 'accent' };
+  if (type.includes('CONFIRMATION')) return { icon: 'shield-checkmark', tone: 'warn' };
+  if (type.includes('TASK')) return { icon: 'checkmark-done', tone: 'good' };
+  if (type.includes('PAYROLL')) return { icon: 'people', tone: 'violet' };
+  if (type.includes('ANAF') || type.includes('SPV')) return { icon: 'cloud', tone: 'sky' };
+  if (type.includes('DOCUMENT') || type.includes('KYC')) return { icon: 'document-text', tone: 'accent' };
+  return { icon: 'notifications', tone: 'danger' };
 }
 
 export default function NotificationsScreen() {
+  const c = useColors();
   const t = useT();
   const router = useRouter();
   const { data, isLoading, isFetching, error, refetch } = useGetNotificationsQuery();
@@ -57,7 +58,7 @@ export default function NotificationsScreen() {
         <ErrorState message={errorMessage(error)} onRetry={refetch} />
       ) : !data || data.items.length === 0 ? (
         <EmptyState
-          icon="notifications-off-outline"
+          icon="notifications-off"
           title={t('Nicio notificare', 'No notifications')}
           message={t(
             'Aici apar mesajele, sarcinile și cererile de la contabil.',
@@ -66,24 +67,29 @@ export default function NotificationsScreen() {
         />
       ) : (
         <Card padded={false}>
-          {data.items.map((n, i) => (
-            <View key={n.id}>
-              {i > 0 ? <Divider inset={64} /> : null}
-              <ListRow
-                icon={iconFor(n.type)}
-                iconTone={n.readAt ? 'neutral' : 'accent'}
-                title={n.title}
-                subtitle={[n.body, formatRelative(n.createdAt)].filter(Boolean).join(' · ')}
-                numberOfLines={2}
-                onPress={() => open(n)}
-                right={
-                  !n.readAt ? (
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#465FE9' }} />
-                  ) : null
-                }
-              />
-            </View>
-          ))}
+          {data.items.map((n, i) => {
+            const look = iconFor(n.type);
+            return (
+              <View key={n.id}>
+                {i > 0 ? <Divider inset={60} /> : null}
+                <ListRow
+                  icon={look.icon}
+                  iconTone={look.tone}
+                  solid={!n.readAt}
+                  title={n.title}
+                  bold={!n.readAt}
+                  subtitle={[n.body, formatRelative(n.createdAt)].filter(Boolean).join(' · ')}
+                  numberOfLines={2}
+                  onPress={() => open(n)}
+                  right={
+                    !n.readAt ? (
+                      <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: c.accent }} />
+                    ) : null
+                  }
+                />
+              </View>
+            );
+          })}
         </Card>
       )}
       <View style={{ height: space.lg }} />

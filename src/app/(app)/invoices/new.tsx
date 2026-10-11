@@ -349,7 +349,7 @@ export default function NewInvoiceScreen() {
         </View>
       ) : null}
 
-      <SectionTitle title={t('Client', 'Client')} />
+      <SectionTitle size="small" title={t('Client', 'Client')} />
       {client.name ? (
         <Card onPress={() => setClientEditor(true)}>
           <View style={styles.clientRow}>
@@ -393,7 +393,7 @@ export default function NewInvoiceScreen() {
         </View>
       )}
 
-      <SectionTitle title={t('Produse și servicii', 'Items and services')} />
+      <SectionTitle size="small" title={t('Produse și servicii', 'Items and services')} />
       {lines.length > 0 ? (
         <Card padded={false}>
           {lines.map((l, i) => {
@@ -449,18 +449,18 @@ export default function NewInvoiceScreen() {
             <Txt tone="soft">TVA</Txt>
             <Txt>{formatMoney(computed.vat, currency)}</Txt>
           </View>
-          <View style={styles.totalRow}>
+          <View style={[styles.totalRow, { marginTop: space.xs }]}>
             <Txt variant="title" weight="700">
               {t('Total', 'Total')}
             </Txt>
-            <Txt variant="title" weight="700">
+            <Txt variant="heading" tabular>
               {formatMoney(computed.total, currency)}
             </Txt>
           </View>
         </Card>
       ) : null}
 
-      <SectionTitle title={t('Detalii', 'Details')} />
+      <SectionTitle size="small" title={t('Detalii', 'Details')} />
       <Card>
         <View style={styles.twoCol}>
           <View style={{ flex: 1 }}>
@@ -516,7 +516,7 @@ export default function NewInvoiceScreen() {
         <Field label={t('Mențiuni (opțional)', 'Notes (optional)')} value={notes} onChangeText={setNotes} multiline />
       </Card>
 
-      <SectionTitle title={t('Trimitere', 'Sending')} />
+      <SectionTitle size="small" title={t('Trimitere', 'Sending')} />
       <Card padded={false}>
         {docType === 'REGULAR' ? (
           <ToggleRow
@@ -551,7 +551,7 @@ export default function NewInvoiceScreen() {
         emptyText={t('Niciun client salvat încă.', 'No saved clients yet.')}
         footer={
           <ListRow
-            icon="add"
+            icon="person-add"
             title={t('Client nou', 'New client')}
             subtitle={t('Completezi automat din CUI', 'Autofill from the tax ID')}
             onPress={() => {
@@ -611,19 +611,15 @@ export default function NewInvoiceScreen() {
         }}
         emptyText={t('Nu ai articole salvate. Folosește o linie liberă.', 'No saved items. Use a custom line.')}
         footer={
-          <View style={styles.pickerFooter}>
-            <Button
-              title={t('Serviciu (linie liberă)', 'Service (custom line)')}
-              icon="construct-outline"
-              variant="secondary"
-              size="sm"
-              onPress={() => {
-                setArticlePicker(false);
-                setTimeout(() => addFreeLine(true), 300);
-              }}
-              style={{ flex: 1 }}
-            />
-          </View>
+          <ListRow
+            icon="construct"
+            title={t('Serviciu (linie liberă)', 'Service (custom line)')}
+            subtitle={t('Fără articol salvat', 'Without a saved item')}
+            onPress={() => {
+              setArticlePicker(false);
+              setTimeout(() => addFreeLine(true), 300);
+            }}
+          />
         }
       />
       {lineBeingEdited ? (
@@ -860,7 +856,7 @@ function ClientEditor({
       onClose={onClose}
       title={info.id ? t('Date client', 'Client details') : t('Client nou', 'New client')}
       fullHeight>
-      <Screen scroll keyboard contentStyle={{ paddingTop: 0 }}>
+      <Screen scroll keyboard insetAdjust={false} contentStyle={{ paddingTop: 0 }}>
         <Field
           label={t('CUI', 'Tax ID (CUI)')}
           value={info.ein}
@@ -940,5 +936,4 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   clientRow: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 3 },
-  pickerFooter: { flexDirection: 'row', paddingHorizontal: space.lg, paddingBottom: space.sm },
 });
