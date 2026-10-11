@@ -23,6 +23,8 @@ portal notification. Tapping one opens the matching screen.
 
 ## Run it
 
+Requires **Node.js 20.19.4 or newer** (22 LTS recommended; `nvm use` picks it up from `.nvmrc`).
+
 ```bash
 npm install
 npx expo start            # then press i / a, or scan the QR code with a dev build
