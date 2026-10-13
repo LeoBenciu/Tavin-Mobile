@@ -7,18 +7,25 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useDispatch } from 'react-redux';
 
-import { api } from '@/api/api';
+import { api, useGetExpenseHoldersQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
 import { clientUserId } from '@/auth/current';
 import { Screen } from '@/components/Screen';
-import { Button, Card, Divider, IconTile, Tap, Txt, type IconName } from '@/components/ui';
+import { Button, Card, Chip, Divider, Field, IconTile, Tap, ToggleRow, Txt, type IconName } from '@/components/ui';
 import { useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
 import { closeTo } from '@/lib/navigation';
 import { uploadFile, type LocalFile } from '@/lib/files';
 import { accentGlowStrong, radius, space, tileGradient, useColors } from '@/theme';
 
-type QueueItem = LocalFile & { key: string; status: 'queued' | 'uploading' | 'done' | 'error'; error?: string };
+type QueueItem = LocalFile & {
+  key: string;
+  status: 'queued' | 'uploading' | 'done' | 'error';
+  error?: string;
+  /** Form fields sent with the file: the „Plătit personal” statement at the time it was picked. */
+  fields: Record<string, string>;
+  paidBy?: string;
+};
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -35,6 +42,23 @@ export default function ScanScreen() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const running = useRef(false);
   const pendingRef = useRef<QueueItem[]>([]);
+  // „Plătit personal”: someone paid these documents out of their own pocket, so the
+  // accountant books them as a decont and knows whom the company owes.
+  const [paidPersonally, setPaidPersonally] = useState(false);
+  const [holderId, setHolderId] = useState<number | null>(null);
+  const [paidByName, setPaidByName] = useState('');
+  const { data: holders = [] } = useGetExpenseHoldersQuery(undefined, { skip: !paidPersonally });
+  const holder = holders.find((h) => h.id === holderId);
+
+  const paidFields = (): { fields: Record<string, string>; paidBy?: string } => {
+    if (!paidPersonally) return { fields: {} };
+    if (holder) return { fields: { paidPersonally: 'true', expenseHolderId: String(holder.id) }, paidBy: holder.name };
+    const name = paidByName.trim();
+    return {
+      fields: { paidPersonally: 'true', ...(name ? { paidByName: name } : {}) },
+      paidBy: name || undefined,
+    };
+  };
 
   const update = (key: string, patch: Partial<QueueItem>) =>
     setQueue((q) => q.map((it) => (it.key === key ? { ...it, ...patch } : it)));
@@ -47,7 +71,7 @@ export default function ScanScreen() {
       const item = pendingRef.current.shift()!;
       update(item.key, { status: 'uploading' });
       try {
-        await uploadFile(`/client-portal/upload?clientUserId=${clientUserId()}`, item);
+        await uploadFile(`/client-portal/upload?clientUserId=${clientUserId()}`, item, 'file', item.fields);
         update(item.key, { status: 'done' });
         dispatch(api.util.invalidateTags(['Documents', 'Dashboard']));
       } catch (e) {
@@ -60,7 +84,13 @@ export default function ScanScreen() {
   };
 
   const enqueue = (files: LocalFile[]) => {
-    const items = files.map((f, i) => ({ ...f, key: `${Date.now()}-${i}-${f.name}`, status: 'queued' as const }));
+    const paid = paidFields();
+    const items = files.map((f, i) => ({
+      ...f,
+      ...paid,
+      key: `${Date.now()}-${i}-${f.name}`,
+      status: 'queued' as const,
+    }));
     setQueue((q) => [...items, ...q]);
     pendingRef.current.push(...items);
     void drain();
@@ -128,6 +158,52 @@ export default function ScanScreen() {
         )}
       </Txt>
 
+      <Card padded={false} style={styles.paidCard}>
+        <ToggleRow
+          icon="wallet"
+          iconTone="accent"
+          title={t('Plătit personal', 'Paid personally')}
+          subtitle={t(
+            'Cineva din firmă a plătit din banii proprii. Contabilul face decontul și știe cui îi datorează firma.',
+            'Someone paid out of their own pocket. Your accountant books the expense report and what to pay back.',
+          )}
+          value={paidPersonally}
+          onValueChange={setPaidPersonally}
+        />
+        {paidPersonally ? (
+          <View style={styles.paidBody}>
+            <Txt variant="footnote" tone="muted" weight="600">
+              {t('Cine a plătit', 'Who paid')}
+            </Txt>
+            <View style={styles.chips}>
+              {holders.map((h) => (
+                <Chip key={h.id} label={h.name} active={holderId === h.id} onPress={() => setHolderId(h.id)} />
+              ))}
+              <Chip
+                label={t('Altă persoană', 'Someone else')}
+                active={holderId === null}
+                onPress={() => setHolderId(null)}
+              />
+            </View>
+            {holderId === null ? (
+              <Field
+                value={paidByName}
+                onChangeText={setPaidByName}
+                placeholder={t('Numele persoanei', 'Their name')}
+                maxLength={120}
+                autoCapitalize="words"
+              />
+            ) : null}
+            <Txt variant="caption" tone="muted">
+              {t(
+                'Se aplică documentelor trimise cât timp e activ.',
+                'Applies to the documents you send while this is on.',
+              )}
+            </Txt>
+          </View>
+        ) : null}
+      </Card>
+
       <Option
         icon="camera"
         title={t('Fotografiază', 'Take photo')}
@@ -166,6 +242,13 @@ export default function ScanScreen() {
                   />
                   <View style={{ flex: 1 }}>
                     <Txt numberOfLines={1}>{q.name}</Txt>
+                    {q.fields.paidPersonally ? (
+                      <Txt variant="caption" tone="muted" numberOfLines={1}>
+                        {q.paidBy
+                          ? t(`Plătit personal de ${q.paidBy}`, `Paid personally by ${q.paidBy}`)
+                          : t('Plătit personal', 'Paid personally')}
+                      </Txt>
+                    ) : null}
                     {q.status === 'error' ? (
                       <Txt variant="caption" tone="danger" numberOfLines={2}>
                         {q.error}
@@ -266,6 +349,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   options: { flexDirection: 'row', gap: space.md, marginTop: space.md },
+  paidCard: { marginBottom: space.lg },
+  paidBody: { gap: space.sm, paddingHorizontal: space.lg, paddingBottom: space.lg },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   option: {
     flex: 1,
     borderRadius: radius.lg,
