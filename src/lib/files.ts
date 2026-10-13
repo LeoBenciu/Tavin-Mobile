@@ -62,10 +62,16 @@ export async function postForPdf(path: string, body: unknown, fileName: string):
 
 export type LocalFile = { uri: string; name: string; mimeType: string };
 
-/** Multipart upload of a photo/PDF picked on the phone. */
-export async function uploadFile(path: string, file: LocalFile, fieldName = 'file'): Promise<unknown> {
+/** Multipart upload of a photo/PDF picked on the phone, with optional text fields next to it. */
+export async function uploadFile(
+  path: string,
+  file: LocalFile,
+  fieldName = 'file',
+  fields: Record<string, string> = {},
+): Promise<unknown> {
   const token = await getAccessToken();
   const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) form.append(key, value);
   if (Platform.OS === 'web') {
     const blob = await (await fetch(file.uri)).blob();
     form.append(fieldName, blob, file.name);

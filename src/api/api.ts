@@ -15,6 +15,7 @@ import type {
   ConversationsResponse,
   Dashboard,
   DocumentsResponse,
+  ExpenseHolderOption,
   ExpensesByCategoryReport,
   FileUrl,
   FirmBalance,
@@ -144,6 +145,11 @@ export const api = createApi({
     // ── Documents ──
     getDocuments: build.query<DocumentsResponse, void>({
       query: () => ({ url: '/client-portal/documents', params: { clientUserId: cu() } }),
+      providesTags: ['Documents'],
+    }),
+    /** People who pay company expenses personally (decont holders), for „Plătit personal”. */
+    getExpenseHolders: build.query<ExpenseHolderOption[], void>({
+      query: () => ({ url: '/client-portal/expense-holders', params: { clientUserId: cu() } }),
       providesTags: ['Documents'],
     }),
     retryUpload: build.mutation<unknown, number>({
@@ -444,6 +450,7 @@ export const {
   useGetCostCentersQuery,
   useRespondApprovalMutation,
   useGetDocumentsQuery,
+  useGetExpenseHoldersQuery,
   useRetryUploadMutation,
   useCancelUploadMutation,
   useDeleteSavedDocumentMutation,

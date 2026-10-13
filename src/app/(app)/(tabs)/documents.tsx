@@ -219,7 +219,12 @@ export default function DocumentsScreen() {
                     iconTone={st.tone}
                     title={u.fileName}
                     subtitle={u.hasError && u.errorMessage ? u.errorMessage : formatRelative(u.createdAt)}
-                    below={<Pill label={st.label} tone={st.tone} />}
+                    below={
+                      <View style={styles.pills}>
+                        <Pill label={st.label} tone={st.tone} />
+                        {u.paidPersonally ? <Pill label={t('Plătit personal', 'Paid personally')} icon="wallet" /> : null}
+                      </View>
+                    }
                     onPress={() => setSelected({ kind: 'pending', item: u })}
                     chevron={false}
                   />
@@ -258,7 +263,17 @@ export default function DocumentsScreen() {
                   subtitle={meta}
                   value={d.documentTotal ? formatMoney(d.documentTotal, d.documentCurrency) : null}
                   below={
-                    d.nirDocument ? <Pill label={t('NIR generat', 'NIR created')} tone="good" icon="checkmark" /> : null
+                    d.nirDocument || d.paidPersonally ? (
+                      <View style={styles.pills}>
+                        {d.nirDocument ? <Pill label={t('NIR generat', 'NIR created')} tone="good" icon="checkmark" /> : null}
+                        {d.paidPersonally ? (
+                          <Pill
+                            label={d.paidByName ? t(`Decont · ${d.paidByName}`, `Expense report · ${d.paidByName}`) : t('Decont', 'Expense report')}
+                            icon="wallet"
+                          />
+                        ) : null}
+                      </View>
+                    ) : null
                   }
                   onPress={() => setSelected({ kind: 'saved', item: d })}
                   chevron={false}
@@ -309,6 +324,7 @@ function SnapTile({ onPress }: { onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   snap: {
     flexDirection: 'row',
     alignItems: 'center',

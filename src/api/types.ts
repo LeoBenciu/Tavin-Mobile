@@ -135,6 +135,9 @@ export type PendingUpload = {
   hasError: boolean;
   isIncomingInvoice?: boolean;
   isAvizDocument?: boolean;
+  /** „Plătit personal” declared on upload (a decont for the accountant). */
+  paidPersonally?: boolean;
+  paidByName?: string | null;
 };
 
 export type SavedDocument = {
@@ -153,6 +156,16 @@ export type SavedDocument = {
   documentIssueDate?: string | null;
   documentDueDate?: string | null;
   documentCurrency?: string;
+  /** Booked as a decont: someone paid it out of their own pocket. */
+  paidPersonally?: boolean;
+  paidByName?: string | null;
+};
+
+/** A person who can pay company expenses personally (decont holder), for „Plătit personal”. */
+export type ExpenseHolderOption = {
+  id: number;
+  name: string;
+  role: 'EMPLOYEE' | 'SHAREHOLDER' | 'THIRD_PARTY';
 };
 
 export type DocumentsResponse = {
