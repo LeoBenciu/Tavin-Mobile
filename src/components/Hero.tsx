@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { accentGlowStrong, gradient, navy, radius, space, tileGradient } from '@/theme';
 
@@ -17,7 +17,10 @@ export function NavyBackdrop({ style, children }: { style?: StyleProp<ViewStyle>
   );
 }
 
-/** The Tavin "T" on an indigo tile with the call-to-action glow. */
+/**
+ * The Tavin mark on an indigo tile with the call-to-action glow. The glyph is a
+ * T-account, the accountant's "T": ledger entries on the left, a check on the right.
+ */
 export function LogoMark({ size = 64 }: { size?: number }) {
   return (
     <View
@@ -27,8 +30,24 @@ export function LogoMark({ size = 64 }: { size?: number }) {
         tileGradient('accent'),
         { boxShadow: accentGlowStrong },
       ]}>
-      <Text style={[styles.logoText, { fontSize: size * 0.52 }]}>T</Text>
+      <Image source={require('@/assets/images/logo-glyph.png')} style={{ width: size, height: size }} />
     </View>
+  );
+}
+
+/** Width over height of logo-wordmark.png. */
+const WORDMARK_RATIO = 243.25 / 78.25;
+
+/** The "tavin" wordmark for navy grounds: white, with the i's dot in light indigo. */
+export function Wordmark({ height = 36 }: { height?: number }) {
+  return (
+    <Image
+      source={require('@/assets/images/logo-wordmark.png')}
+      style={{ width: Math.round(height * WORDMARK_RATIO), height }}
+      accessible
+      accessibilityRole="header"
+      accessibilityLabel="Tavin"
+    />
   );
 }
 
@@ -99,7 +118,6 @@ const styles = StyleSheet.create({
   balanceFooter: { marginTop: space.md, flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   base: { backgroundColor: navy.deep, overflow: 'hidden' },
   logo: { alignItems: 'center', justifyContent: 'center' },
-  logoText: { color: '#FFFFFF', fontWeight: '800', letterSpacing: -1 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',

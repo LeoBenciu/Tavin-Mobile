@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { SignInError, useSession } from '@/auth/session';
-import { GlassChip, LogoMark, NavyBackdrop } from '@/components/Hero';
+import { GlassChip, LogoMark, NavyBackdrop, Wordmark } from '@/components/Hero';
 import { Sheet } from '@/components/Sheet';
 import { Banner, Button, Field, Txt } from '@/components/ui';
 import { useLanguage, useT, type Language } from '@/i18n';
@@ -59,7 +59,9 @@ export default function SignInScreen() {
 
           <View style={styles.brand}>
             <LogoMark size={68} />
-            <Text style={styles.title}>Tavin</Text>
+            <View style={styles.title}>
+              <Wordmark height={36} />
+            </View>
             <Text style={styles.tagline}>
               {t('Firma ta și contabilul tău, în buzunar.', 'Your business and your accountant, in your pocket.')}
             </Text>
@@ -185,14 +187,7 @@ const styles = StyleSheet.create({
   langItemOn: { backgroundColor: navy.glassStrong },
   langText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700', letterSpacing: 0.6, opacity: 0.62 },
   brand: { alignItems: 'center', marginBottom: space.xxl },
-  title: {
-    marginTop: space.lg + 4,
-    color: '#FFFFFF',
-    fontSize: 40,
-    fontWeight: '700',
-    letterSpacing: -1.4,
-    textAlign: 'center',
-  },
+  title: { marginTop: space.lg + 4, marginBottom: space.sm, alignItems: 'center' },
   tagline: { marginTop: space.xs, color: navy.onNavySoft, fontSize: 16, lineHeight: 22, textAlign: 'center' },
   card: { borderRadius: radius.xl, padding: space.xl - 2 },
   eye: { paddingHorizontal: space.md },
