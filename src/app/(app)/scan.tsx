@@ -16,7 +16,7 @@ import { useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
 import { closeTo } from '@/lib/navigation';
 import { uploadFile, type LocalFile } from '@/lib/files';
-import { accentGlowStrong, radius, space, tileGradient, useColors } from '@/theme';
+import { actionGlow, radius, space, useColors } from '@/theme';
 
 type QueueItem = LocalFile & { key: string; status: 'queued' | 'uploading' | 'done' | 'error'; error?: string };
 
@@ -214,23 +214,23 @@ function Option({
 }) {
   const c = useColors();
   if (primary) {
-    // The landing page's "snap a receipt" tile.
+    // Taking the photo is this screen's main action: the coral tile, navy on it.
     return (
       <Tap
         onPress={onPress}
         scaleTo={0.98}
-        style={[styles.primary, tileGradient('accent', 135)]}
+        style={[styles.primary, { backgroundColor: c.action }]}
         accessibilityRole="button">
         <View style={styles.primaryIcon}>
-          <Ionicons name={icon} size={30} color="#FFFFFF" />
+          <Ionicons name={icon} size={30} color={c.onAction} />
         </View>
         <View style={{ flex: 1 }}>
-          <Txt variant="heading" style={{ color: '#FFFFFF' }}>
+          <Txt variant="heading" style={{ color: c.onAction }}>
             {title}
           </Txt>
-          {subtitle ? <Txt style={{ color: '#DFE4FF' }}>{subtitle}</Txt> : null}
+          {subtitle ? <Txt style={{ color: c.onAction, opacity: 0.78 }}>{subtitle}</Txt> : null}
         </View>
-        <Ionicons name="chevron-forward" size={20} color="rgba(255, 255, 255, 0.8)" />
+        <Ionicons name="chevron-forward" size={20} color={c.onAction} />
       </Tap>
     );
   }
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
     gap: space.lg,
     padding: space.xl - 4,
     borderRadius: radius.xl,
-    boxShadow: accentGlowStrong,
+    boxShadow: actionGlow,
   },
   primaryIcon: {
     width: 58,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   options: { flexDirection: 'row', gap: space.md, marginTop: space.md },
   option: {

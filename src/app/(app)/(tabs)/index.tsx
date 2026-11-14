@@ -1,13 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
-import { Animated, Pressable, RefreshControl, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   useGetApprovalsQuery,
-  useGetConversationsQuery,
   useGetDashboardQuery,
   useGetFirmBalanceQuery,
   useGetHealthQuery,
@@ -18,28 +15,28 @@ import {
 import { errorMessage } from '@/api/baseQuery';
 import { useUser } from '@/auth/session';
 import { splitMoney } from '@/components/charts';
-import { GlassChip, NavyBackdrop } from '@/components/Hero';
-import { NAV_BAR_HEIGHT, NavBar, useCollapsingTitle } from '@/components/LargeTitle';
+import { NavyBackdrop } from '@/components/Hero';
 import { useTabBarSpace } from '@/components/TabBar';
 import {
-  ActionTile,
   Amount,
-  Avatar,
-  Banner,
+  Button,
   Card,
   Divider,
   ErrorState,
   HeaderButton,
-  Kpi,
+  IconTile,
   ListRow,
   Loading,
+  Pill,
   SectionTitle,
+  Tap,
   Txt,
+  type IconName,
 } from '@/components/ui';
 import { useT, type Translate } from '@/i18n';
 import { documentTypeLabel } from '@/lib/domain';
-import { daysUntil, formatDate, formatMoneyShort, initials } from '@/lib/format';
-import { gradient, navy, radius, space, useColors, useIsDark } from '@/theme';
+import { daysUntil, formatDate, formatMoney, formatMoneyShort, initials } from '@/lib/format';
+import { gradient, navy, radius, space, useColors } from '@/theme';
 
 function greeting(t: Translate): string {
   const h = new Date().getHours();
@@ -48,19 +45,29 @@ function greeting(t: Translate): string {
   return t('Bună seara', 'Good evening');
 }
 
+/** What the accountant is waiting on, as one card with its one action. */
+type Todo = {
+  key: string;
+  icon: IconName;
+  kind: string;
+  title: string;
+  note: string | null;
+  pill: { label: string; urgent: boolean } | null;
+  action: string;
+  onPress: () => void;
+};
+
+/**
+ * Acasă: what needs the client first (one card, one coral button), then the money on
+ * the navy card, then the month. The company avatar opens the rest of the firm.
+ */
 export default function HomeScreen() {
   const c = useColors();
-  const dark = useIsDark();
   const t = useT();
   const router = useRouter();
-  const focused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
   const tabSpace = useTabBarSpace();
   const user = useUser();
-  const { scrollY, onScroll } = useCollapsingTitle();
-  const [heroHeight, setHeroHeight] = useState(320);
-  const [overHero, setOverHero] = useState(true);
 
   const dashboard = useGetDashboardQuery();
   const vatDue = useGetVatDueQuery();
@@ -69,13 +76,6 @@ export default function HomeScreen() {
   const approvals = useGetApprovalsQuery();
   const tasks = useGetTasksQuery();
   const notifications = useGetNotificationsQuery();
-  const conversations = useGetConversationsQuery();
-
-  // Light status bar over the navy hero; the theme's own once the bar takes over.
-  useEffect(() => {
-    const id = scrollY.addListener(({ value }) => setOverHero(value < heroHeight - 17));
-    return () => scrollY.removeListener(id);
-  }, [scrollY, heroHeight]);
 
   const refreshing = dashboard.isFetching && !dashboard.isLoading;
   const refresh = () => {
@@ -89,9 +89,6 @@ export default function HomeScreen() {
   };
 
   const firstName = user.name.split(' ')[0] || user.name;
-  const pendingApprovals = approvals.data?.data.length ?? 0;
-  const openTasks = (tasks.data?.tasks ?? []).filter((x) => x.status === 'PENDING' || x.status === 'IN_PROGRESS');
-  const unreadMessages = conversations.data?.conversations[0]?.unreadCount ?? 0;
   const unreadNotifications = notifications.data?.unreadCount ?? 0;
   const stats = dashboard.data?.stats;
   const vat = vatDue.data && vatDue.data.applies ? vatDue.data : null;
@@ -99,260 +96,270 @@ export default function HomeScreen() {
   const deadline = health.data?.nextDeadline;
   const deadlineDays = deadline ? daysUntil(deadline.dueDate) : null;
   const [balance, balanceCurrency] = splitMoney(formatMoneyShort(stats?.bankBalance ?? 0));
+  const today = new Date().toLocaleDateString(t('ro-RO', 'en-GB'), { weekday: 'long', day: 'numeric', month: 'long' });
 
-  const headerButtons = (tone: 'glass' | 'plain') => (
-    <>
-      <HeaderButton
-        icon="notifications-outline"
-        tone={tone}
-        dot={unreadNotifications > 0}
-        label={t('Notificări', 'Notifications')}
-        onPress={() => router.push('/notifications')}
-      />
-      <Pressable
-        onPress={() => router.push('/settings')}
-        hitSlop={6}
-        accessibilityRole="button"
-        accessibilityLabel={t('Setări', 'Settings')}
-        style={tone === 'glass' ? styles.avatarRing : null}>
-        <Avatar text={initials(user.name)} size={36} />
-      </Pressable>
-    </>
-  );
+  // Invoices to confirm come first (the accountant can't book them without an answer), then tasks by due date.
+  const todos: Todo[] = [
+    ...(approvals.data?.data ?? []).map((a): Todo => {
+      const risky = a.riskLevel === 'HIGH' || a.ibanIsNew;
+      return {
+        key: `a${a.id}`,
+        icon: 'shield-checkmark',
+        kind: t('Factură de confirmat', 'Invoice to confirm'),
+        title: a.vendorName,
+        note: formatMoney(a.totalAmount, a.currency),
+        pill: risky ? { label: t('De verificat', 'Check this'), urgent: true } : null,
+        action: t('Verifică', 'Review'),
+        onPress: () => router.push('/approvals'),
+      };
+    }),
+    ...(tasks.data?.tasks ?? [])
+      .filter((x) => x.status === 'PENDING' || x.status === 'IN_PROGRESS')
+      .sort((x, y) => String(x.dueDate ?? '9999').localeCompare(String(y.dueDate ?? '9999')))
+      .map((task): Todo => {
+        const days = daysUntil(task.dueDate);
+        return {
+          key: `t${task.id}`,
+          icon: 'checkmark-done',
+          kind: t('Cerut de contabil', 'Asked by your accountant'),
+          title: task.title,
+          note: task.description,
+          pill: task.dueDate
+            ? {
+                label:
+                  days != null && days < 0
+                    ? t('Întârziată', 'Late')
+                    : t(`până pe ${formatDate(task.dueDate)}`, `by ${formatDate(task.dueDate)}`),
+                urgent: days != null && days <= 1,
+              }
+            : null,
+          action: t('Deschide', 'Open'),
+          onPress: () => router.push('/accountant'),
+        };
+      }),
+  ];
+  const first = todos[0];
+  const more = todos.length - 1;
 
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
-      {focused ? <StatusBar style={overHero || dark ? 'light' : 'dark'} /> : null}
-      {/* Fixed navy ground: the hero copy scrolls over it and the content sheet slides up across it. */}
-      <NavyBackdrop style={[styles.ground, { height: insets.top + heroHeight + 80 }]} />
-
-      <Animated.ScrollView
-        style={{ marginTop: insets.top }}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + space.md, paddingBottom: tabSpace + space.xl },
+        ]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#FFFFFF" colors={[c.accent]} />
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={c.muted} colors={[c.accent]} />
         }>
-        <View style={styles.hero} onLayout={(e) => setHeroHeight(Math.round(e.nativeEvent.layout.height))}>
-          <View style={styles.heroTop}>
-            <View style={{ flex: 1, paddingRight: space.md }}>
-              <GlassChip label={user.clientCompany.name} />
-            </View>
-            {headerButtons('glass')}
-          </View>
-
-          <Text style={styles.greeting} numberOfLines={2}>
-            {`${greeting(t)}, ${firstName}`}
-          </Text>
-
-          <Pressable onPress={() => router.push('/bank')} style={styles.balance} accessibilityRole="button">
-            <View style={styles.balanceLabel}>
-              <Text style={styles.balanceLabelText}>{t('Sold în bancă', 'Bank balance')}</Text>
-              <Ionicons name="chevron-forward" size={14} color={navy.onNavyMuted} />
-            </View>
-            {stats ? (
-              <Amount
-                value={balance}
-                currency={balanceCurrency}
-                size="largeTitle"
-                color="#FFFFFF"
-                style={styles.balanceValue}
-              />
-            ) : (
-              <Text style={[styles.balanceValue, styles.balancePlaceholder]}>—</Text>
-            )}
+        <View style={styles.header}>
+          <Pressable
+            onPress={() => router.push('/menu')}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={t(`${user.clientCompany.name}: firma mea`, `${user.clientCompany.name}: my company`)}
+            style={({ pressed }) => [styles.company, { backgroundColor: c.text }, pressed && { opacity: 0.8 }]}>
+            <Text style={[styles.companyText, { color: c.background }]}>{initials(user.clientCompany.name)}</Text>
           </Pressable>
-
-          <View style={styles.actions}>
-            <ActionTile
-              variant="glass"
-              icon="camera"
-              label={t('Scanează', 'Scan')}
-              onPress={() => router.push('/scan')}
-            />
-            <ActionTile
-              variant="glass"
-              icon="add"
-              label={t('Factură', 'Invoice')}
-              onPress={() => router.push('/invoices/new')}
-            />
-            <ActionTile
-              variant="glass"
-              icon="shield-checkmark-outline"
-              label={t('Confirmări', 'Approvals')}
-              badge={pendingApprovals}
-              onPress={() => router.push('/approvals')}
-            />
-            <ActionTile
-              variant="glass"
-              icon="chatbubble-ellipses-outline"
-              label={t('Contabil', 'Accountant')}
-              badge={unreadMessages}
-              onPress={() => router.push('/messages')}
-            />
+          <View style={{ flex: 1 }}>
+            <Txt variant="footnote" tone="muted" weight="600" numberOfLines={1}>
+              {today}
+            </Txt>
+            <Txt variant="heading" numberOfLines={1} adjustsFontSizeToFit>
+              {`${greeting(t)}, ${firstName}`}
+            </Txt>
           </View>
+          <HeaderButton
+            icon="notifications-outline"
+            dot={unreadNotifications > 0}
+            label={t('Notificări', 'Notifications')}
+            onPress={() => router.push('/notifications')}
+          />
         </View>
 
-        <View
-          style={[
-            styles.sheet,
-            { backgroundColor: c.background, minHeight: windowHeight - insets.top, paddingBottom: tabSpace + space.xl },
-          ]}>
-          {pendingApprovals > 0 ? (
-            <View style={{ marginBottom: space.lg }}>
-              <Banner
-                tone="warn"
-                icon="shield-checkmark"
-                title={
-                  pendingApprovals === 1
-                    ? t('O factură așteaptă confirmarea ta', 'One invoice is waiting for you')
-                    : t(
-                        `${pendingApprovals} facturi așteaptă confirmarea ta`,
-                        `${pendingApprovals} invoices are waiting for you`,
-                      )
-                }
-                message={
-                  pendingApprovals === 1
-                    ? t(
-                        'Confirmă că o recunoști, ca să poată fi înregistrată.',
-                        'Confirm you recognise it so it can be booked.',
-                      )
-                    : t(
-                        'Confirmă că le recunoști, ca să poată fi înregistrate.',
-                        'Confirm you recognise them so they can be booked.',
-                      )
-                }
-                onPress={() => router.push('/approvals')}
-              />
-            </View>
-          ) : null}
-
-          {dashboard.isLoading ? (
-            <Loading />
-          ) : dashboard.error && !stats ? (
-            <ErrorState message={errorMessage(dashboard.error)} onRetry={dashboard.refetch} />
-          ) : stats ? (
-            <>
-              <View style={styles.kpiRow}>
-                <Kpi
-                  icon="arrow-down"
-                  iconTone="accent"
-                  label={t('De încasat', 'To collect')}
-                  value={formatMoneyShort(stats.unpaidInvoices.total)}
-                  hint={t(`${stats.unpaidInvoices.count} facturi`, `${stats.unpaidInvoices.count} invoices`)}
-                  onPress={() => router.push('/invoices')}
-                />
-                <Kpi
-                  icon="arrow-up"
-                  iconTone={stats.pendingBills.total > 0 ? 'warn' : 'neutral'}
-                  label={t('De plătit', 'To pay')}
-                  value={formatMoneyShort(stats.pendingBills.total)}
-                  hint={t(`${stats.pendingBills.count} facturi`, `${stats.pendingBills.count} bills`)}
-                  onPress={() => router.push('/bills')}
-                />
+        {first ? (
+          <>
+            <SectionTitle
+              title={t(`De rezolvat · ${todos.length}`, `To do · ${todos.length}`)}
+              size="small"
+              action={{ label: t('Vezi tot', 'See all'), onPress: () => router.push('/accountant') }}
+            />
+            <Card>
+              <View style={styles.todoHead}>
+                <IconTile icon={first.icon} tone="accent" size={36} />
+                <Txt variant="label" tone="muted" style={styles.todoKind} numberOfLines={1}>
+                  {first.kind}
+                </Txt>
+                {first.pill ? (
+                  <Pill label={first.pill.label} tone={first.pill.urgent ? 'urgent' : 'neutral'} />
+                ) : null}
               </View>
+              <Txt variant="heading" style={styles.todoTitle} numberOfLines={2}>
+                {first.title}
+              </Txt>
+              {first.note ? (
+                <Txt variant="small" tone="muted" numberOfLines={2}>
+                  {first.note}
+                </Txt>
+              ) : null}
+              <Button title={first.action} onPress={first.onPress} style={styles.todoAction} />
+            </Card>
+            {more > 0 ? (
+              <Tap
+                onPress={() => router.push('/accountant')}
+                scaleTo={0.98}
+                accessibilityRole="button"
+                style={[styles.moreRow, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+                <Pill label={`+${more}`} tone="accent" />
+                <Txt variant="small" weight="600" style={{ flex: 1 }} numberOfLines={1}>
+                  {more === 1
+                    ? t('Încă un lucru de rezolvat', 'One more thing to do')
+                    : t(`Încă ${more} lucruri de rezolvat`, `${more} more things to do`)}
+                </Txt>
+                <Ionicons name="chevron-forward" size={17} color={c.faint} />
+              </Tap>
+            ) : null}
+          </>
+        ) : approvals.data && tasks.data ? (
+          <View style={[styles.clear, { backgroundColor: c.goodSoft }]}>
+            <Ionicons name="checkmark-circle" size={20} color={c.good} />
+            <Txt variant="small" weight="600" tone="good" style={{ flex: 1 }}>
+              {t('Ești la zi cu contabilul.', 'You’re all caught up with your accountant.')}
+            </Txt>
+          </View>
+        ) : null}
 
-              <MonthCard
-                revenue={stats.revenue}
-                expenses={stats.expenses}
-                vat={vat ? { net: vat.netVat, dueDate: vat.dueDate } : null}
+        <NavyBackdrop style={styles.money}>
+          <Pressable onPress={() => router.push('/bank')} accessibilityRole="button" style={styles.moneyTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.moneyLabel}>{t('Sold în bancă', 'Bank balance')}</Text>
+              {stats ? (
+                <Amount value={balance} currency={balanceCurrency} size="display" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.moneyPlaceholder}>—</Text>
+              )}
+            </View>
+            <View style={styles.moneyChevron}>
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            </View>
+          </Pressable>
+          <View style={styles.glassRow}>
+            <GlassStat
+              label={t('De încasat', 'To collect')}
+              value={stats ? splitMoney(formatMoneyShort(stats.unpaidInvoices.total))[0] : '—'}
+              onPress={() => router.push('/invoices')}
+            />
+            <GlassStat
+              label={t('De plătit', 'To pay')}
+              value={stats ? splitMoney(formatMoneyShort(stats.pendingBills.total))[0] : '—'}
+              onPress={() => router.push('/bills')}
+            />
+            {vat ? (
+              <GlassStat
+                label={vat.netVat >= 0 ? t('TVA de plată', 'VAT to pay') : t('TVA de recuperat', 'VAT to recover')}
+                value={splitMoney(formatMoneyShort(Math.abs(vat.netVat)))[0]}
                 onPress={() => router.push('/reports')}
               />
-            </>
-          ) : null}
+            ) : null}
+          </View>
+        </NavyBackdrop>
 
-          {deadline || owedToFirm || openTasks.length > 0 ? (
-            <>
-              <SectionTitle title={t('De urmărit', 'Coming up')} />
-              <Card padded={false}>
-                {deadline ? (
+        {dashboard.isLoading ? (
+          <Loading />
+        ) : dashboard.error && !stats ? (
+          <ErrorState message={errorMessage(dashboard.error)} onRetry={dashboard.refetch} />
+        ) : stats ? (
+          <MonthCard
+            revenue={stats.revenue}
+            expenses={stats.expenses}
+            vat={vat ? { net: vat.netVat, dueDate: vat.dueDate } : null}
+            onPress={() => router.push('/reports')}
+          />
+        ) : null}
+
+        {deadline || owedToFirm ? (
+          <>
+            <SectionTitle title={t('De urmărit', 'Coming up')} size="small" />
+            <Card padded={false}>
+              {deadline ? (
+                <ListRow
+                  icon="calendar"
+                  iconTone={deadlineDays != null && deadlineDays <= 3 ? 'urgent' : 'accent'}
+                  title={t(`Termen ${deadline.code}`, `${deadline.code} deadline`)}
+                  subtitle={
+                    deadlineDays == null
+                      ? formatDate(deadline.dueDate)
+                      : deadlineDays <= 0
+                        ? t('azi', 'today')
+                        : t(
+                            `în ${deadlineDays} zile · ${formatDate(deadline.dueDate)}`,
+                            `in ${deadlineDays} days · ${formatDate(deadline.dueDate)}`,
+                          )
+                  }
+                />
+              ) : null}
+              {owedToFirm ? (
+                <>
+                  {deadline ? <Divider inset={60} /> : null}
                   <ListRow
-                    icon="calendar"
-                    solid
-                    iconTone={deadlineDays != null && deadlineDays <= 3 ? 'danger' : 'accent'}
-                    title={t(`Termen ${deadline.code}`, `${deadline.code} deadline`)}
-                    subtitle={
-                      deadlineDays == null
-                        ? formatDate(deadline.dueDate)
-                        : deadlineDays <= 0
-                          ? t('azi', 'today')
-                          : t(
-                              `în ${deadlineDays} zile · ${formatDate(deadline.dueDate)}`,
-                              `in ${deadlineDays} days · ${formatDate(deadline.dueDate)}`,
-                            )
-                    }
+                    icon="briefcase"
+                    iconTone={owedToFirm.invoices.some((i) => i.overdue) ? 'urgent' : 'accent'}
+                    title={t('Sold la contabil', 'Owed to your accountant')}
+                    value={formatMoneyShort(owedToFirm.balance, owedToFirm.currency)}
+                    onPress={() => router.push('/firm')}
                   />
-                ) : null}
-                {openTasks.length > 0 ? (
-                  <>
-                    {deadline ? <Divider inset={60} /> : null}
-                    <ListRow
-                      icon="checkmark-done"
-                      solid
-                      iconTone="good"
-                      title={t(
-                        `${openTasks.length} sarcini de la contabil`,
-                        `${openTasks.length} tasks from your accountant`,
-                      )}
-                      subtitle={openTasks[0]?.title}
-                      onPress={() => router.push('/tasks')}
-                    />
-                  </>
-                ) : null}
-                {owedToFirm ? (
-                  <>
-                    {deadline || openTasks.length > 0 ? <Divider inset={60} /> : null}
-                    <ListRow
-                      icon="briefcase"
-                      solid
-                      iconTone={owedToFirm.invoices.some((i) => i.overdue) ? 'danger' : 'warn'}
-                      title={t('Sold la contabil', 'Owed to your accountant')}
-                      value={formatMoneyShort(owedToFirm.balance, owedToFirm.currency)}
-                      onPress={() => router.push('/firm')}
-                    />
-                  </>
-                ) : null}
-              </Card>
-            </>
-          ) : null}
+                </>
+              ) : null}
+            </Card>
+          </>
+        ) : null}
 
-          {dashboard.data && dashboard.data.recentActivity.length > 0 ? (
-            <>
-              <SectionTitle
-                title={t('Activitate recentă', 'Recent activity')}
-                action={{ label: t('Vezi tot', 'See all'), onPress: () => router.push('/documents') }}
-              />
-              <Card padded={false}>
-                {dashboard.data.recentActivity.slice(0, 6).map((a, i) => (
-                  <View key={a.id}>
-                    {i > 0 ? <Divider inset={60} /> : null}
-                    <ListRow
-                      icon="document-text"
-                      iconTone="neutral"
-                      title={a.description}
-                      subtitle={`${documentTypeLabel(t, a.type)} · ${formatDate(a.date)}`}
-                      value={Number(a.amount) ? formatMoneyShort(a.amount) : null}
-                    />
-                  </View>
-                ))}
-              </Card>
-            </>
-          ) : null}
+        {dashboard.data && dashboard.data.recentActivity.length > 0 ? (
+          <>
+            <SectionTitle
+              title={t('Activitate recentă', 'Recent activity')}
+              size="small"
+              action={{ label: t('Vezi tot', 'See all'), onPress: () => router.push('/documents') }}
+            />
+            <Card padded={false}>
+              {dashboard.data.recentActivity.slice(0, 5).map((a, i) => (
+                <View key={a.id}>
+                  {i > 0 ? <Divider inset={60} /> : null}
+                  <ListRow
+                    icon="document-text"
+                    iconTone="neutral"
+                    title={a.description}
+                    subtitle={`${documentTypeLabel(t, a.type)} · ${formatDate(a.date)}`}
+                    value={Number(a.amount) ? formatMoneyShort(a.amount) : null}
+                  />
+                </View>
+              ))}
+            </Card>
+          </>
+        ) : null}
 
-          <Txt variant="footnote" tone="muted" style={styles.footer}>
-            {t(`Contabil: ${user.accountingCompany.name}`, `Accountant: ${user.accountingCompany.name}`)}
-          </Txt>
-        </View>
-      </Animated.ScrollView>
-
-      <NavBar
-        title={user.clientCompany.name}
-        scrollY={scrollY}
-        showAt={heroHeight - 10}
-        right={headerButtons('plain')}
-        fadeRight
-      />
+        <Txt variant="footnote" tone="muted" style={styles.footer}>
+          {t(`Contabil: ${user.accountingCompany.name}`, `Accountant: ${user.accountingCompany.name}`)}
+        </Txt>
+      </ScrollView>
     </View>
+  );
+}
+
+/** One figure on the navy card (in the balance's currency): a glass tile that opens the screen behind it. */
+function GlassStat({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}`}
+      style={({ pressed }) => [styles.glass, pressed && { backgroundColor: navy.glassStrong }]}>
+      <Text style={styles.glassLabel} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={styles.glassValue} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -446,37 +453,60 @@ function MonthCard({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  ground: { position: 'absolute', top: 0, left: 0, right: 0 },
-  hero: { paddingHorizontal: space.lg + 4, paddingBottom: space.xl + space.lg },
-  heroTop: { height: NAV_BAR_HEIGHT, flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  avatarRing: { borderRadius: 20, padding: 1, borderWidth: 1, borderColor: navy.glassLine },
-  greeting: {
+  content: { paddingHorizontal: space.lg, flexGrow: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 48 },
+  company: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  companyText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },
+  todoHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm + 2 },
+  todoKind: { flex: 1, fontSize: 11.5, letterSpacing: 0.6 },
+  todoTitle: { marginTop: space.md, marginBottom: 2 },
+  todoAction: { marginTop: space.lg },
+  moreRow: {
+    marginTop: space.sm + 2,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm + 2,
+    paddingHorizontal: space.md + 2,
+    borderRadius: radius.lg,
+  },
+  clear: {
     marginTop: space.lg,
-    color: '#FFFFFF',
-    fontSize: 30,
-    lineHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    padding: space.md + 2,
+    borderRadius: radius.md,
+  },
+  money: {
+    marginTop: space.lg + 2,
+    borderRadius: radius.lg + 2,
+    padding: space.lg + 2,
+    gap: space.lg - 2,
+    boxShadow: '0px 24px 48px -24px rgba(7, 15, 28, 0.7)',
+  },
+  moneyTop: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  moneyLabel: {
+    color: navy.indigoLight,
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: -0.9,
-  },
-  balance: { marginTop: space.xl },
-  balanceLabel: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  balanceLabelText: {
-    color: navy.onNavyMuted,
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.4,
+    letterSpacing: 0.6,
     textTransform: 'uppercase',
+    marginBottom: 2,
   },
-  balanceValue: { marginTop: 4, fontSize: 40, lineHeight: 46, letterSpacing: -1.4 },
-  balancePlaceholder: { color: navy.onNavyMuted, fontWeight: '700' },
-  actions: { flexDirection: 'row', marginTop: space.xl + 4, marginHorizontal: -space.xs },
-  sheet: {
-    borderTopLeftRadius: radius.xl + 4,
-    borderTopRightRadius: radius.xl + 4,
-    paddingHorizontal: space.lg,
-    paddingTop: space.lg + 4,
+  moneyPlaceholder: { color: navy.onNavyMuted, fontSize: 30, lineHeight: 36, fontWeight: '700' },
+  moneyChevron: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: navy.glass,
   },
-  kpiRow: { flexDirection: 'row', gap: space.md },
+  glassRow: { flexDirection: 'row', gap: space.sm },
+  glass: { flex: 1, minHeight: 58, gap: 4, padding: space.md, borderRadius: radius.md, backgroundColor: navy.glass },
+  glassLabel: { color: navy.onNavySoft, fontSize: 12 },
+  glassValue: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
   monthHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.md },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   monthLabel: { flexDirection: 'row', alignItems: 'center', gap: space.sm },

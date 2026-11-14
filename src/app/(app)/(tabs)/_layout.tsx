@@ -3,7 +3,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import type { ComponentProps } from 'react';
 import type { ColorValue } from 'react-native';
 
-import { useGetConversationsQuery } from '@/api/api';
+import { useGetApprovalsQuery, useGetConversationsQuery, useGetTasksQuery } from '@/api/api';
 import { FloatingTabBar, TabBarSpaceContext, useTabBarSpaceValue } from '@/components/TabBar';
 import { useT } from '@/i18n';
 import { useColors } from '@/theme';
@@ -17,12 +17,23 @@ function icon(filled: IconName, outline: IconName) {
   };
 }
 
+/**
+ * Four tabs around the scan button (FloatingTabBar puts it in the middle): what a client
+ * does every day. The rest of the firm (bank, bills, reports, lists, settings) opens
+ * from the company avatar on Acasă.
+ */
 export default function TabsLayout() {
   const c = useColors();
   const t = useT();
   const space = useTabBarSpaceValue();
   const { data: conversations } = useGetConversationsQuery(undefined, { pollingInterval: 60_000 });
-  const unread = conversations?.conversations[0]?.unreadCount ?? 0;
+  const { data: approvals } = useGetApprovalsQuery();
+  const { data: tasks } = useGetTasksQuery();
+  // Everything the accountant is waiting on, plus unread messages.
+  const waiting =
+    (approvals?.data.length ?? 0) +
+    (tasks?.tasks ?? []).filter((x) => x.status === 'PENDING' || x.status === 'IN_PROGRESS').length +
+    (conversations?.conversations[0]?.unreadCount ?? 0);
 
   return (
     <TabBarSpaceContext.Provider value={space}>
@@ -42,14 +53,13 @@ export default function TabsLayout() {
           options={{ title: t('Facturi', 'Invoices'), tabBarIcon: icon('receipt', 'receipt-outline') }}
         />
         <Tabs.Screen
-          name="messages"
+          name="accountant"
           options={{
-            title: t('Mesaje', 'Messages'),
-            tabBarBadge: unread > 0 ? unread : undefined,
+            title: t('Contabil', 'Accountant'),
+            tabBarBadge: waiting > 0 ? waiting : undefined,
             tabBarIcon: icon('chatbubbles', 'chatbubbles-outline'),
           }}
         />
-        <Tabs.Screen name="more" options={{ title: t('Mai mult', 'More'), tabBarIcon: icon('grid', 'grid-outline') }} />
       </Tabs>
     </TabBarSpaceContext.Provider>
   );

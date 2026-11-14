@@ -43,7 +43,7 @@ export function invoiceStatus(
   if (status === 'PAID' || inv.paymentStatus === 'FULLY_PAID' || inv.paymentStatus === 'OVERPAID') {
     return { label: t('Încasată', 'Paid'), tone: 'good' };
   }
-  if (status === 'OVERDUE') return { label: t('Restantă', 'Overdue'), tone: 'danger' };
+  if (status === 'OVERDUE') return { label: t('Restantă', 'Overdue'), tone: 'urgent' };
   if (status === 'PARTIALLY_PAID' || inv.paymentStatus === 'PARTIALLY_PAID') {
     return { label: t('Încasată parțial', 'Partly paid'), tone: 'warn' };
   }

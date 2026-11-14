@@ -24,7 +24,7 @@ import { useT } from '@/i18n';
 import { haptic } from '@/lib/haptics';
 import {
   accentGlow,
-  accentGlowStrong,
+  actionGlow,
   font,
   navy,
   radius,
@@ -294,12 +294,13 @@ function isTone(t: TileTone): t is Tone {
   return t === 'neutral' || t === 'accent' || t === 'good' || t === 'warn' || t === 'danger';
 }
 
-/** Red count bubble (tab bar, menu rows, tiles). */
+/** Coral count bubble (tab bar, menu rows, tiles). */
 export function CountBadge({ count, style }: { count: number; style?: StyleProp<ViewStyle> }) {
+  const c = useColors();
   if (!count) return null;
   return (
-    <View style={[styles.badge, { backgroundColor: BADGE_RED }, style]}>
-      <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+    <View style={[styles.badge, { backgroundColor: c.action }, style]}>
+      <Text style={[styles.badgeText, { color: c.onAction }]}>{count > 99 ? '99+' : count}</Text>
     </View>
   );
 }
@@ -421,7 +422,7 @@ export function ToggleRow({
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-/** Capsule buttons; the primary one carries the landing page's indigo glow. */
+/** Capsule buttons; the primary one is coral with navy text: one per screen. */
 export function Button({
   title,
   onPress,
@@ -443,7 +444,7 @@ export function Button({
 }) {
   const c = useColors();
   const palette = {
-    primary: { bg: c.accent, fg: c.onAccent },
+    primary: { bg: c.action, fg: c.onAction },
     secondary: { bg: c.accentSoft, fg: c.accentText },
     ghost: { bg: 'transparent', fg: c.accentText },
     danger: { bg: c.dangerSoft, fg: c.danger },
@@ -459,18 +460,23 @@ export function Button({
         styles.button,
         size === 'sm' && styles.buttonSm,
         { backgroundColor: palette.bg },
-        variant === 'primary' && !disabled ? { boxShadow: accentGlowStrong } : null,
+        variant === 'primary' && !disabled ? { boxShadow: actionGlow } : null,
         disabled && { opacity: 0.45 },
         style,
       ]}
-      pressedStyle={variant === 'primary' ? { backgroundColor: c.accentPressed } : { opacity: 0.75 }}>
+      pressedStyle={variant === 'primary' ? { backgroundColor: c.actionPressed } : { opacity: 0.75 }}>
       {loading ? (
         <ActivityIndicator color={palette.fg} />
       ) : (
         <>
           {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 19} color={palette.fg} /> : null}
           <Text
-            style={[styles.buttonText, size === 'sm' && { fontSize: font.small }, { color: palette.fg }]}
+            style={[
+              styles.buttonText,
+              size === 'sm' && { fontSize: font.small },
+              variant === 'primary' && { fontWeight: '700' },
+              { color: palette.fg },
+            ]}
             numberOfLines={1}>
             {title}
           </Text>
@@ -497,7 +503,8 @@ export function HeaderButton({
   const c = useColors();
   const look = {
     plain: { bg: c.fill, fg: c.text, border: 'transparent' },
-    accent: { bg: c.accent, fg: '#FFFFFF', border: 'transparent' },
+    // The screen's main action when it lives in the bar ("new invoice"): coral, like Button's primary.
+    accent: { bg: c.action, fg: c.onAction, border: 'transparent' },
     glass: { bg: navy.glass, fg: '#FFFFFF', border: navy.glassLine },
   }[tone];
   return (
@@ -510,7 +517,7 @@ export function HeaderButton({
       style={[
         styles.headerButton,
         { backgroundColor: look.bg, borderColor: look.border },
-        tone === 'accent' ? { boxShadow: accentGlow } : null,
+        tone === 'accent' ? { boxShadow: actionGlow } : null,
       ]}>
       <Ionicons name={icon} size={20} color={look.fg} />
       {dot ? <View style={[styles.headerDot, { borderColor: tone === 'glass' ? navy.deep : c.surface }]} /> : null}
@@ -779,10 +786,15 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
       style={[
         styles.chip,
         active
-          ? { backgroundColor: c.accent, borderColor: c.accent, boxShadow: accentGlow }
+          ? { backgroundColor: c.text, borderColor: c.text }
           : { backgroundColor: c.surface, borderColor: c.line },
       ]}>
-      <Txt variant="small" weight="600" tone={active ? 'onAccent' : 'soft'} numberOfLines={1}>
+      <Txt
+        variant="small"
+        weight={active ? '700' : '600'}
+        tone="soft"
+        style={active ? { color: c.background } : null}
+        numberOfLines={1}>
         {label}
       </Txt>
     </Tap>
@@ -800,7 +812,7 @@ export function Pill({ label, tone = 'neutral', icon }: { label: string; tone?: 
       {icon ? (
         <Ionicons name={icon} size={12} color={tc.fg} />
       ) : (
-        <View style={[styles.pillDot, { backgroundColor: tc.fg }]} />
+        <View style={[styles.pillDot, { backgroundColor: tc.dot ?? tc.fg }]} />
       )}
       <Text style={[styles.pillText, { color: tc.fg }]} numberOfLines={1}>
         {label}
@@ -996,8 +1008,8 @@ export function Banner({
 }
 
 const SEG_PAD = 3;
-/** iOS badge red, the same in light and dark. */
-const BADGE_RED = '#F04438';
+/** Tavin coral, the same in light and dark: the unread dot on header buttons. */
+const BADGE_RED = '#FF6B5B';
 
 const styles = StyleSheet.create({
   tabular: { fontVariant: ['tabular-nums'] },
@@ -1061,7 +1073,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  badgeText: { fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
   field: { marginBottom: space.md + 2 },
   fieldLabel: { marginBottom: 6, marginLeft: 4 },
   fieldNote: { marginTop: 5, marginLeft: 4 },

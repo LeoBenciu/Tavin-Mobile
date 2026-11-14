@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused } from 'expo-router';
+import { Stack, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,12 +13,11 @@ import {
 import { errorMessage } from '@/api/baseQuery';
 import type { ChatMessage } from '@/api/types';
 import { useUser } from '@/auth/session';
-import { NAV_BAR_HEIGHT, NavBar } from '@/components/LargeTitle';
-import { useKeyboardVisible, useTabBarSpace } from '@/components/TabBar';
-import { Avatar, EmptyState, ErrorState, Loading, Txt } from '@/components/ui';
+import { useKeyboardVisible } from '@/components/TabBar';
+import { EmptyState, ErrorState, Loading, Txt } from '@/components/ui';
 import { useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
-import { formatRelative, initials } from '@/lib/format';
+import { formatRelative } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
 import { gradient, space, useColors } from '@/theme';
 
@@ -31,7 +30,6 @@ export default function MessagesScreen() {
   const user = useUser();
   const focused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const tabSpace = useTabBarSpace();
   const keyboard = useKeyboardVisible();
   const { data, isLoading, error, refetch } = useGetConversationsQuery(undefined, {
     pollingInterval: focused ? 15_000 : 0,
@@ -90,13 +88,18 @@ export default function MessagesScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* The chat is opened from the Contabil tab: the stack's bar carries the firm's name and Back. */}
+      <Stack.Screen options={{ title: firmName || t('Contabilul tău', 'Your accountant') }} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}>
         {isLoading ? (
-          <View style={{ flex: 1, paddingTop: insets.top + NAV_BAR_HEIGHT }}>
+          <View style={{ flex: 1 }}>
             <Loading />
           </View>
         ) : error && !data ? (
-          <View style={{ flex: 1, paddingTop: insets.top + NAV_BAR_HEIGHT + space.lg }}>
+          <View style={{ flex: 1, paddingTop: space.lg }}>
             <ErrorState message={errorMessage(error)} onRetry={refetch} />
           </View>
         ) : (
@@ -108,7 +111,7 @@ export default function MessagesScreen() {
             // Inverted: paddingTop is the visual bottom, paddingBottom the top (under the bar).
             contentContainerStyle={[
               styles.list,
-              { paddingTop: space.md, paddingBottom: insets.top + NAV_BAR_HEIGHT + space.lg },
+              { paddingTop: space.md, paddingBottom: space.lg },
             ]}
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
@@ -180,7 +183,7 @@ export default function MessagesScreen() {
             {
               backgroundColor: c.bar,
               borderTopColor: c.separator,
-              paddingBottom: keyboard ? space.sm : tabSpace || insets.bottom + space.sm,
+              paddingBottom: keyboard ? space.sm : insets.bottom + space.sm,
             },
           ]}>
           <TextInput
@@ -211,22 +214,6 @@ export default function MessagesScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      <NavBar
-        solid
-        center={
-          <View style={styles.contact}>
-            <Avatar text={initials(firmName || 'T')} size={28} />
-            <View style={{ flexShrink: 1 }}>
-              <Txt variant="footnote" weight="700" numberOfLines={1}>
-                {firmName}
-              </Txt>
-              <Txt variant="caption" tone="muted" numberOfLines={1}>
-                {t('Contabilul tău', 'Your accountant')}
-              </Txt>
-            </View>
-          </View>
-        }
-      />
     </View>
   );
 }
@@ -264,5 +251,4 @@ const styles = StyleSheet.create({
     fontSize: 17,
   },
   send: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  contact: { flexDirection: 'row', alignItems: 'center', gap: space.sm, maxWidth: '100%' },
 });

@@ -58,7 +58,7 @@ export default function FirmBalanceScreen() {
                   title={inv.invoiceNumber}
                   subtitle={t(`scadentă ${formatDate(inv.dueDate)}`, `due ${formatDate(inv.dueDate)}`)}
                   value={formatMoney(inv.outstanding, inv.currency)}
-                  below={inv.overdue ? <Pill label={t('Restantă', 'Overdue')} tone="danger" /> : null}
+                  below={inv.overdue ? <Pill label={t('Restantă', 'Overdue')} tone="urgent" /> : null}
                 />
               </View>
             ))}

@@ -1,7 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import {
   api,
@@ -21,13 +20,11 @@ import {
   Divider,
   EmptyState,
   ErrorState,
-  HeaderButton,
   ListRow,
   Loading,
   Pill,
   SearchField,
   Segmented,
-  Tap,
   Txt,
 } from '@/components/ui';
 import { useT } from '@/i18n';
@@ -35,7 +32,7 @@ import { confirm, notify } from '@/lib/confirm';
 import { documentTypeLabel, uploadStatus } from '@/lib/domain';
 import { openUrl } from '@/lib/files';
 import { formatDate, formatMoney, formatRelative } from '@/lib/format';
-import { accentGlowStrong, radius, space, tileGradient } from '@/theme';
+import { space } from '@/theme';
 
 type Tab = 'inbox' | 'saved';
 type Selected = { kind: 'pending'; item: PendingUpload } | { kind: 'saved'; item: SavedDocument } | null;
@@ -160,15 +157,11 @@ export default function DocumentsScreen() {
     <TabScreen
       title={t('Documente', 'Documents')}
       refreshing={isFetching && !isLoading}
-      onRefresh={refetch}
-      actions={
-        <HeaderButton icon="camera" tone="accent" label={t('Scanează', 'Scan')} onPress={() => router.push('/scan')} />
-      }>
-      <SnapTile onPress={() => router.push('/scan')} />
+      onRefresh={refetch}>
       <Segmented
         value={tab}
         onChange={setTab}
-        style={{ marginTop: space.lg }}
+        style={{ marginTop: space.xs }}
         options={[
           {
             value: 'inbox',
@@ -286,47 +279,7 @@ export default function DocumentsScreen() {
   );
 }
 
-/** "Snap a receipt" — the indigo tile from the landing page's phone (.lp-portal-snap). */
-function SnapTile({ onPress }: { onPress: () => void }) {
-  const t = useT();
-  return (
-    <Tap onPress={onPress} scaleTo={0.98} style={[styles.snap, tileGradient('accent', 135)]} accessibilityRole="button">
-      <View style={styles.snapIcon}>
-        <Ionicons name="camera" size={22} color="#FFFFFF" />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.snapTitle}>{t('Fă o poză la un bon', 'Snap a receipt')}</Text>
-        <Text style={styles.snapText}>
-          {t(
-            'Ajunge direct la contabil, iar datele se extrag singure',
-            'It goes straight to your accountant, data read for you',
-          )}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color="rgba(255, 255, 255, 0.8)" />
-    </Tap>
-  );
-}
-
 const styles = StyleSheet.create({
-  snap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    padding: space.lg,
-    borderRadius: radius.lg,
-    boxShadow: accentGlowStrong,
-  },
-  snapIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-  },
-  snapTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
-  snapText: { color: '#DFE4FF', fontSize: 13, lineHeight: 18, marginTop: 1 },
   search: { marginTop: space.md, marginBottom: space.lg },
   note: { textAlign: 'center', marginTop: space.md },
 });

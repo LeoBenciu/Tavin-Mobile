@@ -19,7 +19,7 @@ function billStatus(t: Translate, b: Bill): { label: string; tone: Tone } {
     case 'partial':
       return { label: t('Parțial', 'Partly paid'), tone: 'warn' };
     case 'overdue':
-      return { label: t('Restantă', 'Overdue'), tone: 'danger' };
+      return { label: t('Restantă', 'Overdue'), tone: 'urgent' };
     default:
       return { label: t('De plătit', 'To pay'), tone: 'accent' };
   }
