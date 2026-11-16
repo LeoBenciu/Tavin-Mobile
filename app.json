@@ -15,7 +15,7 @@
       }
     },
     "android": {
-      "package": "eu.tavin.mobile",
+      "package": "eu.tavin.app",
       "adaptiveIcon": {
         "backgroundColor": "#465FE9",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
