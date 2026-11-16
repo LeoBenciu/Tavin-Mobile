@@ -24,7 +24,7 @@ import { useT } from '@/i18n';
 import { haptic } from '@/lib/haptics';
 import {
   accentGlow,
-  accentGlowStrong,
+  actionGlow,
   font,
   navy,
   radius,
@@ -294,12 +294,13 @@ function isTone(t: TileTone): t is Tone {
   return t === 'neutral' || t === 'accent' || t === 'good' || t === 'warn' || t === 'danger';
 }
 
-/** Red count bubble (tab bar, menu rows, tiles). */
+/** Coral count bubble (tab bar, menu rows, tiles). */
 export function CountBadge({ count, style }: { count: number; style?: StyleProp<ViewStyle> }) {
+  const c = useColors();
   if (!count) return null;
   return (
-    <View style={[styles.badge, { backgroundColor: BADGE_RED }, style]}>
-      <Text style={styles.badgeText}>{count > 99 ? '99+' : count}</Text>
+    <View style={[styles.badge, { backgroundColor: c.action }, style]}>
+      <Text style={[styles.badgeText, { color: c.onAction }]}>{count > 99 ? '99+' : count}</Text>
     </View>
   );
 }
@@ -421,7 +422,7 @@ export function ToggleRow({
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-/** Capsule buttons; the primary one carries the landing page's indigo glow. */
+/** Capsule buttons; the primary one is coral with navy text: one per screen. */
 export function Button({
   title,
   onPress,
@@ -443,7 +444,7 @@ export function Button({
 }) {
   const c = useColors();
   const palette = {
-    primary: { bg: c.accent, fg: c.onAccent },
+    primary: { bg: c.action, fg: c.onAction },
     secondary: { bg: c.accentSoft, fg: c.accentText },
     ghost: { bg: 'transparent', fg: c.accentText },
     danger: { bg: c.dangerSoft, fg: c.danger },
@@ -459,18 +460,23 @@ export function Button({
         styles.button,
         size === 'sm' && styles.buttonSm,
         { backgroundColor: palette.bg },
-        variant === 'primary' && !disabled ? { boxShadow: accentGlowStrong } : null,
+        variant === 'primary' && !disabled ? { boxShadow: actionGlow } : null,
         disabled && { opacity: 0.45 },
         style,
       ]}
-      pressedStyle={variant === 'primary' ? { backgroundColor: c.accentPressed } : { opacity: 0.75 }}>
+      pressedStyle={variant === 'primary' ? { backgroundColor: c.actionPressed } : { opacity: 0.75 }}>
       {loading ? (
         <ActivityIndicator color={palette.fg} />
       ) : (
         <>
           {icon ? <Ionicons name={icon} size={size === 'sm' ? 16 : 19} color={palette.fg} /> : null}
           <Text
-            style={[styles.buttonText, size === 'sm' && { fontSize: font.small }, { color: palette.fg }]}
+            style={[
+              styles.buttonText,
+              size === 'sm' && { fontSize: font.small },
+              variant === 'primary' && { fontWeight: '700' },
+              { color: palette.fg },
+            ]}
             numberOfLines={1}>
             {title}
           </Text>
@@ -497,7 +503,8 @@ export function HeaderButton({
   const c = useColors();
   const look = {
     plain: { bg: c.fill, fg: c.text, border: 'transparent' },
-    accent: { bg: c.accent, fg: '#FFFFFF', border: 'transparent' },
+    // The screen's main action when it lives in the bar ("new invoice"): coral, like Button's primary.
+    accent: { bg: c.action, fg: c.onAction, border: 'transparent' },
     glass: { bg: navy.glass, fg: '#FFFFFF', border: navy.glassLine },
   }[tone];
   return (
@@ -510,7 +517,7 @@ export function HeaderButton({
       style={[
         styles.headerButton,
         { backgroundColor: look.bg, borderColor: look.border },
-        tone === 'accent' ? { boxShadow: accentGlow } : null,
+        tone === 'accent' ? { boxShadow: actionGlow } : null,
       ]}>
       <Ionicons name={icon} size={20} color={look.fg} />
       {dot ? <View style={[styles.headerDot, { borderColor: tone === 'glass' ? navy.deep : c.surface }]} /> : null}
@@ -779,10 +786,15 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
       style={[
         styles.chip,
         active
-          ? { backgroundColor: c.accent, borderColor: c.accent, boxShadow: accentGlow }
+          ? { backgroundColor: c.text, borderColor: c.text }
           : { backgroundColor: c.surface, borderColor: c.line },
       ]}>
-      <Txt variant="small" weight="600" tone={active ? 'onAccent' : 'soft'} numberOfLines={1}>
+      <Txt
+        variant="small"
+        weight={active ? '700' : '600'}
+        tone="soft"
+        style={active ? { color: c.background } : null}
+        numberOfLines={1}>
         {label}
       </Txt>
     </Tap>
@@ -800,7 +812,7 @@ export function Pill({ label, tone = 'neutral', icon }: { label: string; tone?: 
       {icon ? (
         <Ionicons name={icon} size={12} color={tc.fg} />
       ) : (
-        <View style={[styles.pillDot, { backgroundColor: tc.fg }]} />
+        <View style={[styles.pillDot, { backgroundColor: tc.dot ?? tc.fg }]} />
       )}
       <Text style={[styles.pillText, { color: tc.fg }]} numberOfLines={1}>
         {label}
@@ -995,9 +1007,103 @@ export function Banner({
   );
 }
 
+// ── Summaries ──
+
+/**
+ * One headline figure with what it is made of: a bar split into parts and a legend
+ * (invoices to collect, bills to pay). Parts differ in lightness as well as hue, and
+ * each carries its label and amount, so the bar never relies on colour alone.
+ */
+export function SplitTotal({
+  label,
+  amount,
+  currency,
+  pill,
+  parts,
+}: {
+  label: string;
+  /** Formatted number without the currency. */
+  amount: string;
+  currency: string;
+  pill?: { label: string; tone: Tone } | null;
+  parts: { label: string; value: number; display: string; color: string }[];
+}) {
+  const shown = parts.filter((p) => p.value > 0.009);
+  return (
+    <Card>
+      <View style={extra.splitHead}>
+        <View style={{ flex: 1 }}>
+          <Txt variant="label" tone="muted" style={extra.splitLabel}>
+            {label}
+          </Txt>
+          <Amount value={amount} currency={currency} size="display" />
+        </View>
+        {pill ? <Pill label={pill.label} tone={pill.tone} /> : null}
+      </View>
+      {shown.length > 0 ? (
+        <>
+          <View style={extra.splitBar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {shown.map((p) => (
+              <View key={p.label} style={{ flex: p.value, minWidth: 6, backgroundColor: p.color }} />
+            ))}
+          </View>
+          <View style={extra.splitLegend}>
+            {shown.map((p) => (
+              <View key={p.label} style={extra.splitKey}>
+                <View style={[extra.splitDot, { backgroundColor: p.color }]} />
+                <Txt variant="footnote" tone="soft" weight="600" tabular>
+                  {p.label} {p.display}
+                </Txt>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
+    </Card>
+  );
+}
+
+/** Where something is on its way: filled segments for the steps behind it, grey for those ahead. */
+export function Steps({ items }: { items: { label: string; note?: string | null; done: boolean }[] }) {
+  const c = useColors();
+  return (
+    <View style={extra.steps}>
+      {items.map((it) => (
+        <View
+          key={it.label}
+          style={extra.step}
+          accessible
+          accessibilityLabel={`${it.label}${it.done ? ' ✓' : ''}${it.note ? `, ${it.note}` : ''}`}>
+          <View style={[extra.stepBar, { backgroundColor: it.done ? c.accent : c.line }]} />
+          <Txt variant="caption" weight={it.done ? '700' : '600'} tone={it.done ? 'default' : 'muted'} numberOfLines={2}>
+            {it.label}
+          </Txt>
+          {it.note ? (
+            <Txt variant="caption" tone="muted" numberOfLines={1}>
+              {it.note}
+            </Txt>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const extra = StyleSheet.create({
+  splitHead: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  splitLabel: { fontSize: 12, letterSpacing: 0.6, marginBottom: 2 },
+  splitBar: { flexDirection: 'row', gap: 3, height: 8, borderRadius: 4, overflow: 'hidden', marginTop: space.md + 2 },
+  splitLegend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg - 2, rowGap: 4, marginTop: space.md },
+  splitKey: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  splitDot: { width: 8, height: 8, borderRadius: 2 },
+  steps: { flexDirection: 'row', gap: 6 },
+  step: { flex: 1, gap: 5 },
+  stepBar: { height: 5, borderRadius: 3 },
+});
+
 const SEG_PAD = 3;
-/** iOS badge red, the same in light and dark. */
-const BADGE_RED = '#F04438';
+/** Tavin coral, the same in light and dark: the unread dot on header buttons. */
+const BADGE_RED = '#FF6B5B';
 
 const styles = StyleSheet.create({
   tabular: { fontVariant: ['tabular-nums'] },
@@ -1061,7 +1167,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  badgeText: { fontSize: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
   field: { marginBottom: space.md + 2 },
   fieldLabel: { marginBottom: 6, marginLeft: 4 },
   fieldNote: { marginTop: 5, marginLeft: 4 },

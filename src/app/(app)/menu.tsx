@@ -2,15 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
-import { useGetApprovalsQuery, useGetNotificationsQuery, useGetTasksQuery } from '@/api/api';
+import { useGetBillsQuery, useGetFirmBalanceQuery } from '@/api/api';
 import { useUser } from '@/auth/session';
-import { TabScreen } from '@/components/LargeTitle';
-import { Avatar, Card, Divider, ListRow, SectionTitle, Tap, Txt, type IconName } from '@/components/ui';
+import { Screen } from '@/components/Screen';
+import { Avatar, Card, Divider, ListRow, Pill, SectionTitle, Tap, Txt, type IconName } from '@/components/ui';
 import { useT } from '@/i18n';
 import { APP_VERSION, WEB_APP_URL } from '@/lib/config';
 import { openUrl } from '@/lib/files';
-import { initials } from '@/lib/format';
-import { space, useColors, type TileTone } from '@/theme';
+import { formatMoneyShort, initials } from '@/lib/format';
+import { space, useColors, type TileTone, type Tone } from '@/theme';
 
 type Item = {
   icon: IconName;
@@ -19,27 +19,46 @@ type Item = {
   subtitle?: string;
   href?: Href;
   onPress?: () => void;
-  badge?: number;
+  /** A status beside the title: what is overdue or owed. */
+  pill?: { label: string; tone: Tone } | null;
 };
 
-export default function MoreScreen() {
+/**
+ * "Firma mea": everything that is not a daily job. Opened from the company avatar on
+ * Acasă; the tabs keep what a client does every day (documents, invoices, the accountant).
+ */
+export default function MenuScreen() {
   const c = useColors();
   const t = useT();
   const router = useRouter();
   const user = useUser();
-  const { data: approvals } = useGetApprovalsQuery();
-  const { data: tasks } = useGetTasksQuery();
-  const { data: notifications } = useGetNotificationsQuery();
+  const { data: bills } = useGetBillsQuery();
+  const { data: firm } = useGetFirmBalanceQuery();
 
-  const openTasks = (tasks?.tasks ?? []).filter((x) => x.status === 'PENDING' || x.status === 'IN_PROGRESS').length;
-  const pendingApprovals = approvals?.data.length ?? 0;
+  const overdueBills = bills?.stats.overdueCount ?? 0;
+  const owed = firm && firm.balance > 0.009 ? firm : null;
 
   const groups: { title: string; items: Item[] }[] = [
     {
       title: t('Bani', 'Money'),
       items: [
-        { icon: 'wallet', tone: 'warn', title: t('Facturi de plătit', 'Bills to pay'), href: '/bills' },
-        { icon: 'card', tone: 'good', title: t('Bancă', 'Bank'), href: '/bank' },
+        {
+          icon: 'wallet',
+          tone: 'accent',
+          title: t('Facturi de plătit', 'Bills to pay'),
+          href: '/bills',
+          pill:
+            overdueBills > 0
+              ? {
+                  label:
+                    overdueBills === 1
+                      ? t('1 restantă', '1 overdue')
+                      : t(`${overdueBills} restante`, `${overdueBills} overdue`),
+                  tone: 'urgent',
+                }
+              : null,
+        },
+        { icon: 'card', tone: 'accent', title: t('Bancă', 'Bank'), href: '/bank' },
         {
           icon: 'bar-chart',
           tone: 'accent',
@@ -49,47 +68,39 @@ export default function MoreScreen() {
         },
         {
           icon: 'briefcase',
-          tone: 'slate',
+          tone: 'accent',
           title: t('Sold la contabil', 'Balance with your accountant'),
           href: '/firm',
-        },
-      ],
-    },
-    {
-      title: t('Cu contabilul', 'With your accountant'),
-      items: [
-        {
-          icon: 'shield-checkmark',
-          tone: 'accent',
-          title: t('Facturi de confirmat', 'Invoices to confirm'),
-          href: '/approvals',
-          badge: pendingApprovals,
-        },
-        { icon: 'checkmark-done', tone: 'good', title: t('Sarcini', 'Tasks'), href: '/tasks', badge: openTasks },
-        {
-          icon: 'notifications',
-          tone: 'danger',
-          title: t('Notificări', 'Notifications'),
-          href: '/notifications',
-          badge: notifications?.unreadCount,
+          pill: owed
+            ? {
+                label: formatMoneyShort(owed.balance, owed.currency),
+                tone: owed.invoices.some((i) => i.overdue) ? 'urgent' : 'accent',
+              }
+            : null,
         },
       ],
     },
     {
       title: t('Nomenclatoare', 'Lists'),
       items: [
-        { icon: 'people', tone: 'sky', title: t('Clienți și furnizori', 'Clients and suppliers'), href: '/partners' },
-        { icon: 'pricetags', tone: 'violet', title: t('Articole', 'Items'), href: '/articles' },
-        { icon: 'cube', tone: 'warn', title: t('Stocuri', 'Stock'), href: '/stock' },
+        { icon: 'people', tone: 'neutral', title: t('Clienți și furnizori', 'Clients and suppliers'), href: '/partners' },
+        { icon: 'pricetags', tone: 'neutral', title: t('Articole', 'Items'), href: '/articles' },
+        { icon: 'cube', tone: 'neutral', title: t('Stocuri', 'Stock'), href: '/stock' },
       ],
     },
     {
       title: t('Cont', 'Account'),
       items: [
-        { icon: 'settings', tone: 'neutral', title: t('Setări', 'Settings'), href: '/settings' },
+        {
+          icon: 'settings',
+          tone: 'neutral',
+          title: t('Setări', 'Settings'),
+          subtitle: t('Profil, securitate, notificări', 'Profile, security, notifications'),
+          href: '/settings',
+        },
         {
           icon: 'globe',
-          tone: 'sky',
+          tone: 'neutral',
           title: t('Deschide tavin.eu', 'Open tavin.eu'),
           subtitle: t(
             'Salarii, setări facturare, e-Transport și restul portalului',
@@ -102,21 +113,18 @@ export default function MoreScreen() {
   ];
 
   return (
-    <TabScreen title={t('Mai mult', 'More')}>
+    <Screen>
       <Tap
         onPress={() => router.push('/settings')}
         scaleTo={0.98}
         style={[styles.profile, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
-        <Avatar text={initials(user.name)} size={58} />
+        <Avatar text={initials(user.clientCompany.name)} size={52} />
         <View style={{ flex: 1, gap: 1 }}>
-          <Txt variant="heading" numberOfLines={1}>
-            {user.name}
-          </Txt>
-          <Txt variant="small" tone="muted" numberOfLines={1}>
+          <Txt variant="title" weight="700" numberOfLines={1}>
             {user.clientCompany.name}
           </Txt>
-          <Txt variant="footnote" tone="accent" weight="600" numberOfLines={1}>
-            {t('Profil, securitate, notificări', 'Profile, security, notifications')}
+          <Txt variant="small" tone="muted" numberOfLines={1}>
+            {user.name}
           </Txt>
         </View>
         <Ionicons name="chevron-forward" size={17} color={c.faint} />
@@ -132,11 +140,10 @@ export default function MoreScreen() {
                 <ListRow
                   icon={it.icon}
                   iconTone={it.tone}
-                  solid
                   title={it.title}
                   subtitle={it.subtitle}
                   numberOfLines={it.subtitle ? 2 : 1}
-                  badge={it.badge}
+                  right={it.pill ? <Pill label={it.pill.label} tone={it.pill.tone} /> : undefined}
                   onPress={it.onPress ?? (() => it.href && router.push(it.href))}
                 />
               </View>
@@ -147,7 +154,7 @@ export default function MoreScreen() {
       <Txt variant="footnote" tone="faint" style={{ textAlign: 'center', marginTop: space.xl }}>
         Tavin {APP_VERSION}
       </Txt>
-    </TabScreen>
+    </Screen>
   );
 }
 

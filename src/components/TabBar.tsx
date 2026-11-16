@@ -1,10 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Animated, Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { useT } from '@/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { haptic } from '@/lib/haptics';
-import { gradient, useColors } from '@/theme';
+import { actionGlow, gradient, useColors } from '@/theme';
 import { CountBadge } from './ui';
 
 const NATIVE_DRIVER = Platform.OS !== 'web';
@@ -47,23 +51,28 @@ export function useKeyboardVisible(): boolean {
 
 /**
  * A floating capsule tab bar, after the iOS 26 tab bar: content scrolls underneath,
- * and a soft indigo lens slides to the selected tab.
+ * and a soft indigo lens slides to the selected tab. Scanning is what a client does
+ * most, so it sits in the middle as the coral button, reachable from every tab.
  */
 export function FloatingTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
   const c = useColors();
+  const t = useT();
+  const router = useRouter();
   const keyboard = useKeyboardVisible();
   const [width, setWidth] = useState(0);
   const [x] = useState(() => new Animated.Value(0));
   const count = state.routes.length;
-  const item = width > 0 ? (width - 8) / count : 0;
+  // The scan button takes the middle slot, between the two halves of the tabs.
+  const middle = Math.ceil(count / 2);
+  const item = width > 0 ? (width - 8) / (count + 1) : 0;
   const last = useRef({ index: state.index, item });
 
   useEffect(() => {
-    const target = state.index * item;
+    const target = (state.index < middle ? state.index : state.index + 1) * item;
     if (last.current.item !== item) x.setValue(target);
     else Animated.spring(x, { toValue: target, useNativeDriver: NATIVE_DRIVER, speed: 20, bounciness: 5 }).start();
     last.current = { index: state.index, item };
-  }, [state.index, item, x]);
+  }, [state.index, item, middle, x]);
 
   if (keyboard) return null;
 
@@ -97,7 +106,25 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
               navigation.navigate(route.name, route.params);
             }
           };
-          return (
+          const scan =
+            index === middle ? (
+              <View key="scan" style={styles.item}>
+                <Pressable
+                  onPress={() => {
+                    haptic.light();
+                    router.push('/scan');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('Scanează un document', 'Scan a document')}
+                  style={({ pressed }) => [
+                    styles.scan,
+                    { backgroundColor: pressed ? c.actionPressed : c.action, boxShadow: actionGlow },
+                  ]}>
+                  <Ionicons name="scan" size={26} color={c.onAction} />
+                </Pressable>
+              </View>
+            ) : null;
+          const tab = (
             <Pressable
               key={route.key}
               onPress={onPress}
@@ -118,6 +145,7 @@ export function FloatingTabBar({ state, descriptors, navigation, insets }: Botto
               </Text>
             </Pressable>
           );
+          return scan ? [scan, tab] : tab;
         })}
       </View>
     </View>
@@ -138,5 +166,6 @@ const styles = StyleSheet.create({
   lens: { position: 'absolute', left: 4, top: 4, bottom: 4, borderRadius: (PILL_HEIGHT - 8) / 2 },
   item: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 2 },
   label: { fontSize: 10.5, letterSpacing: 0.1 },
+  scan: { width: 54, height: 54, borderRadius: 27, alignItems: 'center', justifyContent: 'center' },
   badge: { position: 'absolute', top: -6, right: -12, minWidth: 18, height: 18, paddingHorizontal: 5 },
 });

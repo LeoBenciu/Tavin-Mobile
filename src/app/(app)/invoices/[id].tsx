@@ -34,6 +34,7 @@ import {
   Loading,
   Pill,
   SectionTitle,
+  Steps,
   Txt,
 } from '@/components/ui';
 import { useT } from '@/i18n';
@@ -288,6 +289,23 @@ export default function InvoiceDetailScreen() {
           </View>
         </View>
       </Card>
+
+      {!isDraft && !isCancelled ? (
+        <Card style={{ marginTop: space.md }}>
+          <Steps
+            items={[
+              { label: t('Emisă', 'Issued'), done: true },
+              ...(fiscal
+                ? [
+                    { label: t('Trimisă în SPV', 'Sent to SPV'), done: inv.efacturaStatus !== 'NOT_SENT' },
+                    { label: t('Acceptată ANAF', 'Accepted by ANAF'), done: inv.efacturaStatus === 'ACCEPTED' },
+                  ]
+                : []),
+              { label: t('Încasată', 'Paid'), done: remaining <= 0.009 },
+            ]}
+          />
+        </Card>
+      ) : null}
 
       {inv.efacturaErrorMessage && (inv.efacturaStatus === 'REJECTED' || inv.efacturaStatus === 'ERROR') ? (
         <View style={{ marginTop: space.md }}>

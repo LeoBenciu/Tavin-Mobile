@@ -1,15 +1,16 @@
 import { Platform, useColorScheme, type ViewStyle } from 'react-native';
 
 /**
- * Tavin's palette, taken from the landing page (tavin.eu, LandingPage.css): deck navy
- * chrome, Tavin indigo as the only action colour, green / amber / red strictly
- * semantic. Surfaces follow iOS: a grouped background with white (or navy) cells on it.
+ * Tavin's palette, the same as the web app's (client/src/tavin-tokens.css): coral is the
+ * one main action on a screen and what is urgent (the text on it is navy, never white);
+ * indigo is links, selection and "in progress"; navy the dark grounds; green / amber / red
+ * strictly semantic. Surfaces follow iOS: a grouped background with white (or navy) cells.
  */
 const light = {
   /** iOS grouped background, tinted towards the landing page's ground. */
-  background: '#F2F3F8',
+  background: '#F6F7FB',
   /** The background at zero alpha, for fades into it. */
-  backgroundClear: 'rgba(242, 243, 248, 0)',
+  backgroundClear: 'rgba(246, 247, 251, 0)',
   surface: '#FFFFFF',
   /** Highlighted (pressed) cell. */
   surfaceAlt: '#ECEEF4',
@@ -25,6 +26,13 @@ const light = {
   /** Placeholders, chevrons, disabled glyphs. */
   faint: '#A3ACBA',
   chip: '#F1F3F7',
+  /** The screen's main button, and what is urgent. Never text on a light ground (2.8:1). */
+  action: '#FF6B5B',
+  actionPressed: '#F25A4A',
+  /** Text and glyphs on coral: navy, 5.9:1. */
+  onAction: '#101F32',
+  actionSoft: '#FFF0ED',
+  onActionSoft: '#101F32',
   accent: '#465FE9',
   accentPressed: '#354BC7',
   accentText: '#465FE9',
@@ -64,6 +72,11 @@ const dark: typeof light = {
   muted: '#8A97AB',
   faint: '#56647A',
   chip: '#1B283B',
+  action: '#FF6B5B',
+  actionPressed: '#FF8172',
+  onAction: '#101F32',
+  actionSoft: 'rgba(255, 107, 91, 0.16)',
+  onActionSoft: '#FFB3A9',
   accent: '#465FE9',
   accentPressed: '#5A71F0',
   accentText: '#A8B5FF',
@@ -105,7 +118,8 @@ export const navy = {
 } as const;
 
 export type Colors = typeof light;
-export type Tone = 'neutral' | 'accent' | 'good' | 'warn' | 'danger';
+/** 'urgent' is the coral tone: overdue, asked for by the accountant, needs you now. */
+export type Tone = 'neutral' | 'accent' | 'good' | 'warn' | 'danger' | 'urgent';
 /** Icon tile palettes: the semantic tones plus a few for menus, as in iOS Settings. */
 export type TileTone = Tone | 'sky' | 'violet' | 'slate';
 
@@ -130,8 +144,10 @@ export function useIsDark(): boolean {
   return useColorScheme() === 'dark';
 }
 
-export function toneColors(c: Colors, tone: Tone): { fg: string; bg: string } {
+export function toneColors(c: Colors, tone: Tone): { fg: string; bg: string; dot?: string } {
   switch (tone) {
+    case 'urgent':
+      return { fg: c.onActionSoft, bg: c.actionSoft, dot: c.action };
     case 'accent':
       return { fg: c.accentText, bg: c.accentSoft };
     case 'good':
@@ -151,6 +167,7 @@ const TILE: Record<TileTone, [string, string]> = {
   good: ['#15803D', '#34C76F'],
   warn: ['#D97706', '#FBBF24'],
   danger: ['#DC2626', '#F87171'],
+  urgent: ['#FF6B5B', '#FF8F7F'],
   neutral: ['#5F6B7E', '#97A3B6'],
   sky: ['#0284C7', '#5CC8F5'],
   violet: ['#6D4AE8', '#A48BFF'],
@@ -174,7 +191,9 @@ export function tileGradient(tone: TileTone, angle = 145): ViewStyle {
   return { backgroundColor: from, ...gradient(`linear-gradient(${angle}deg, ${from}, ${to})`) };
 }
 
-/** The landing page's main call to action: indigo with a soft glow underneath. */
+/** The main button: coral with a soft glow underneath (--tv-coral-shadow on the web). */
+export const actionGlow = 'inset 0px 1px 0px rgba(255, 255, 255, 0.28), 0px 14px 32px -12px rgba(255, 107, 91, 0.6)';
+/** Indigo glow, for the logo tile and selected indigo controls. */
 export const accentGlow = '0px 10px 24px -10px rgba(70, 95, 233, 0.85)';
 export const accentGlowStrong =
   'inset 0px 1px 0px rgba(255, 255, 255, 0.22), 0px 0px 0px 1px rgba(168, 181, 255, 0.3), 0px 14px 32px -12px rgba(70, 95, 233, 0.95)';

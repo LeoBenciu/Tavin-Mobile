@@ -89,6 +89,9 @@ export default function AppLayout() {
         <Stack.Screen name="stock" options={{ title: t('Stocuri', 'Stock'), ...large }} />
         <Stack.Screen name="notifications" options={{ title: t('Notificări', 'Notifications'), ...large }} />
         <Stack.Screen name="settings" options={{ title: t('Setări', 'Settings'), ...large }} />
+        <Stack.Screen name="document" options={{ title: '' }} />
+        <Stack.Screen name="messages" options={{ title: t('Contabilul tău', 'Your accountant') }} />
+        <Stack.Screen name="menu" options={{ title: t('Firma mea', 'My company'), ...large }} />
         <Stack.Screen name="firm" options={{ title: t('Sold la contabil', 'Accountant balance'), ...large }} />
       </Stack>
       <AppLock />
