@@ -58,7 +58,7 @@ export function efacturaStatus(
     case 'ACCEPTED':
       return { label: t('Acceptată ANAF', 'Accepted by ANAF'), tone: 'good', icon: 'checkmark-circle' };
     case 'PENDING':
-      return { label: t('În procesare ANAF', 'Processing at ANAF'), tone: 'warn', icon: 'time' };
+      return { label: t('În procesare ANAF', 'Processing at ANAF'), tone: 'accent', icon: 'time' };
     case 'REJECTED':
       return { label: t('Respinsă ANAF', 'Rejected by ANAF'), tone: 'danger', icon: 'close-circle' };
     case 'ERROR':
@@ -76,7 +76,7 @@ export function isEfacturaDocument(type: string): boolean {
 export function uploadStatus(t: Translate, u: PendingUpload): { label: string; tone: Tone } {
   if (u.hasError) return { label: t('Eroare', 'Error'), tone: 'danger' };
   if (u.isReady) return { label: t('Gata pentru contabil', 'Ready for accountant'), tone: 'good' };
-  return { label: t('Se procesează', 'Processing'), tone: 'warn' };
+  return { label: t('În procesare', 'Processing'), tone: 'accent' };
 }
 
 export function documentTypeLabel(t: Translate, type: string): string {

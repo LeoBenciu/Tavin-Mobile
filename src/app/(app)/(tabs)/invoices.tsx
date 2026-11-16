@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGetInvoicesQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
 import type { IssuedInvoiceListItem } from '@/api/types';
+import { splitMoney } from '@/components/charts';
 import { LARGE_TITLE_HEIGHT, LargeTitle, NAV_BAR_HEIGHT, NavBar, useCollapsingTitle } from '@/components/LargeTitle';
 import { useTabBarSpace } from '@/components/TabBar';
 import {
@@ -16,7 +17,7 @@ import {
   Loading,
   Pill,
   SearchField,
-  StatStrip,
+  SplitTotal,
   Txt,
 } from '@/components/ui';
 import { useT } from '@/i18n';
@@ -77,19 +78,40 @@ export default function InvoicesScreen() {
     <View>
       <LargeTitle title={t('Facturi', 'Invoices')} />
       {data ? (
-        <StatStrip
-          items={[
+        <SplitTotal
+          label={t('De încasat', 'To collect')}
+          amount={splitMoney(formatMoneyShort(data.stats.pendingAmount + data.stats.overdueAmount))[0]}
+          currency="RON"
+          pill={
+            data.stats.overdueCount > 0
+              ? {
+                  label:
+                    data.stats.overdueCount === 1
+                      ? t('1 restantă', '1 overdue')
+                      : t(`${data.stats.overdueCount} restante`, `${data.stats.overdueCount} overdue`),
+                  tone: 'urgent',
+                }
+              : null
+          }
+          parts={[
             {
-              label: t('De încasat', 'Outstanding'),
-              value: formatMoneyShort(data.stats.pendingAmount),
-              tone: 'accent',
+              label: t('Restante', 'Overdue'),
+              value: data.stats.overdueAmount,
+              display: splitMoney(formatMoneyShort(data.stats.overdueAmount))[0],
+              color: c.action,
             },
             {
-              label: t('Restant', 'Overdue'),
-              value: formatMoneyShort(data.stats.overdueAmount),
-              tone: data.stats.overdueAmount > 0 ? 'danger' : 'default',
+              label: t('În termen', 'On time'),
+              value: data.stats.pendingAmount,
+              display: splitMoney(formatMoneyShort(data.stats.pendingAmount))[0],
+              color: c.chart,
             },
-            { label: t('Încasat', 'Collected'), value: formatMoneyShort(data.stats.paidAmount), tone: 'good' },
+            {
+              label: t('Încasate', 'Collected'),
+              value: data.stats.paidAmount,
+              display: splitMoney(formatMoneyShort(data.stats.paidAmount))[0],
+              color: c.chartRest,
+            },
           ]}
         />
       ) : null}

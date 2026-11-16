@@ -4,13 +4,14 @@ import { StyleSheet, View } from 'react-native';
 import { useGetBillsQuery, useLazyGetDocumentUrlQuery } from '@/api/api';
 import { errorMessage } from '@/api/baseQuery';
 import type { Bill } from '@/api/types';
+import { splitMoney } from '@/components/charts';
 import { Screen } from '@/components/Screen';
-import { Card, Divider, EmptyState, ErrorState, ListRow, Loading, Pill, Segmented, StatStrip } from '@/components/ui';
+import { Card, Divider, EmptyState, ErrorState, ListRow, Loading, Pill, Segmented, SplitTotal } from '@/components/ui';
 import { useT, type Translate } from '@/i18n';
 import { notify } from '@/lib/confirm';
 import { openUrl } from '@/lib/files';
 import { daysUntil, formatDate, formatMoney, formatMoneyShort } from '@/lib/format';
-import { space, type Tone } from '@/theme';
+import { space, useColors, type Tone } from '@/theme';
 
 function billStatus(t: Translate, b: Bill): { label: string; tone: Tone } {
   switch (b.status) {
@@ -26,6 +27,7 @@ function billStatus(t: Translate, b: Bill): { label: string; tone: Tone } {
 }
 
 export default function BillsScreen() {
+  const c = useColors();
   const t = useT();
   const [filter, setFilter] = useState<'open' | 'paid'>('open');
   const { data, isLoading, isFetching, error, refetch } = useGetBillsQuery();
@@ -53,21 +55,41 @@ export default function BillsScreen() {
     <Screen refreshing={isFetching && !isLoading} onRefresh={refetch}>
       {data ? (
         <View style={styles.kpis}>
-          <StatStrip
-            items={[
-              { label: t('Total de plătit', 'Total to pay'), value: formatMoneyShort(data.stats.total) },
+          <SplitTotal
+            label={t('Total de plătit', 'Total to pay')}
+            amount={splitMoney(formatMoneyShort(data.stats.total))[0]}
+            currency="RON"
+            pill={
+              data.stats.overdueCount > 0
+                ? {
+                    label:
+                      data.stats.overdueCount === 1
+                        ? t('1 restantă', '1 overdue')
+                        : t(`${data.stats.overdueCount} restante`, `${data.stats.overdueCount} overdue`),
+                    tone: 'urgent',
+                  }
+                : null
+            }
+            parts={[
               {
-                label: t(`Restante (${data.stats.overdueCount})`, `Overdue (${data.stats.overdueCount})`),
-                value: formatMoneyShort(data.stats.overdue),
-                tone: data.stats.overdue > 0 ? 'danger' : 'default',
+                label: t('Restante', 'Overdue'),
+                value: data.stats.overdue,
+                display: splitMoney(formatMoneyShort(data.stats.overdue))[0],
+                color: c.action,
               },
               {
-                label: t(
-                  `Săptămâna asta (${data.stats.dueThisWeekCount})`,
-                  `This week (${data.stats.dueThisWeekCount})`,
-                ),
-                value: formatMoneyShort(data.stats.dueThisWeek),
-                tone: 'warn',
+                label: t('Săptămâna asta', 'This week'),
+                value: data.stats.dueThisWeek,
+                display: splitMoney(formatMoneyShort(data.stats.dueThisWeek))[0],
+                color: c.chart,
+              },
+              {
+                label: t('Mai târziu', 'Later'),
+                value: Math.max(0, data.stats.total - data.stats.overdue - data.stats.dueThisWeek),
+                display: splitMoney(
+                  formatMoneyShort(Math.max(0, data.stats.total - data.stats.overdue - data.stats.dueThisWeek)),
+                )[0],
+                color: c.chartRest,
               },
             ]}
           />

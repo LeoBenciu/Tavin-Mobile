@@ -1007,6 +1007,100 @@ export function Banner({
   );
 }
 
+// ── Summaries ──
+
+/**
+ * One headline figure with what it is made of: a bar split into parts and a legend
+ * (invoices to collect, bills to pay). Parts differ in lightness as well as hue, and
+ * each carries its label and amount, so the bar never relies on colour alone.
+ */
+export function SplitTotal({
+  label,
+  amount,
+  currency,
+  pill,
+  parts,
+}: {
+  label: string;
+  /** Formatted number without the currency. */
+  amount: string;
+  currency: string;
+  pill?: { label: string; tone: Tone } | null;
+  parts: { label: string; value: number; display: string; color: string }[];
+}) {
+  const shown = parts.filter((p) => p.value > 0.009);
+  return (
+    <Card>
+      <View style={extra.splitHead}>
+        <View style={{ flex: 1 }}>
+          <Txt variant="label" tone="muted" style={extra.splitLabel}>
+            {label}
+          </Txt>
+          <Amount value={amount} currency={currency} size="display" />
+        </View>
+        {pill ? <Pill label={pill.label} tone={pill.tone} /> : null}
+      </View>
+      {shown.length > 0 ? (
+        <>
+          <View style={extra.splitBar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {shown.map((p) => (
+              <View key={p.label} style={{ flex: p.value, minWidth: 6, backgroundColor: p.color }} />
+            ))}
+          </View>
+          <View style={extra.splitLegend}>
+            {shown.map((p) => (
+              <View key={p.label} style={extra.splitKey}>
+                <View style={[extra.splitDot, { backgroundColor: p.color }]} />
+                <Txt variant="footnote" tone="soft" weight="600" tabular>
+                  {p.label} {p.display}
+                </Txt>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
+    </Card>
+  );
+}
+
+/** Where something is on its way: filled segments for the steps behind it, grey for those ahead. */
+export function Steps({ items }: { items: { label: string; note?: string | null; done: boolean }[] }) {
+  const c = useColors();
+  return (
+    <View style={extra.steps}>
+      {items.map((it) => (
+        <View
+          key={it.label}
+          style={extra.step}
+          accessible
+          accessibilityLabel={`${it.label}${it.done ? ' ✓' : ''}${it.note ? `, ${it.note}` : ''}`}>
+          <View style={[extra.stepBar, { backgroundColor: it.done ? c.accent : c.line }]} />
+          <Txt variant="caption" weight={it.done ? '700' : '600'} tone={it.done ? 'default' : 'muted'} numberOfLines={2}>
+            {it.label}
+          </Txt>
+          {it.note ? (
+            <Txt variant="caption" tone="muted" numberOfLines={1}>
+              {it.note}
+            </Txt>
+          ) : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const extra = StyleSheet.create({
+  splitHead: { flexDirection: 'row', alignItems: 'flex-start', gap: space.sm },
+  splitLabel: { fontSize: 12, letterSpacing: 0.6, marginBottom: 2 },
+  splitBar: { flexDirection: 'row', gap: 3, height: 8, borderRadius: 4, overflow: 'hidden', marginTop: space.md + 2 },
+  splitLegend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg - 2, rowGap: 4, marginTop: space.md },
+  splitKey: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  splitDot: { width: 8, height: 8, borderRadius: 2 },
+  steps: { flexDirection: 'row', gap: 6 },
+  step: { flex: 1, gap: 5 },
+  stepBar: { height: 5, borderRadius: 3 },
+});
+
 const SEG_PAD = 3;
 /** Tavin coral, the same in light and dark: the unread dot on header buttons. */
 const BADGE_RED = '#FF6B5B';
