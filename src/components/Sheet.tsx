@@ -1,13 +1,63 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState, type ReactNode } from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  Extrapolation,
+  interpolate,
+  ReduceMotion,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import { useT } from '@/i18n';
+import { haptic } from '@/lib/haptics';
 import { radius, space, useColors, type Tone, toneColors } from '@/theme';
 import { Divider, SearchField, Txt, type IconName } from './ui';
 
-/** Bottom sheet over a dimmed backdrop, shaped like an iOS sheet. */
+/** The iOS sheet curve: rises from the bottom edge and settles without overshoot. */
+const EASE_SHEET = Easing.bezier(0.32, 0.72, 0, 1);
+const OPEN_MS = 340;
+const CLOSE_MS = 240;
+const FADE_MS = 180;
+// Reanimated skips every animation under the system's reduced motion by default. The fade is the
+// gentle form reduced motion keeps, so it opts out of that.
+const FADE = { duration: FADE_MS, reduceMotion: ReduceMotion.Never };
+
+/** Where a flick would come to rest if it kept decelerating (Apple's decay form). */
+function project(velocity: number, decelerationRate = 0.998) {
+  'worklet';
+  return ((velocity / 1000) * decelerationRate) / (1 - decelerationRate);
+}
+
+/** Past the top, the sheet follows the finger less and less instead of stopping dead. */
+function rubberband(overshoot: number, dimension: number, constant = 0.55) {
+  'worklet';
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
+
+/**
+ * Bottom sheet over a dimmed backdrop, shaped like an iOS sheet. It rises from the bottom edge
+ * while the backdrop fades in, and it goes back the way it came: closing slides it down before it
+ * unmounts. The grabber and the title bar drag it, and a flick down is enough to dismiss it.
+ * With reduced motion it only fades.
+ */
 export function Sheet({
   visible,
   onClose,
@@ -24,42 +74,141 @@ export function Sheet({
   const c = useColors();
   const t = useT();
   const insets = useSafeAreaInsets();
+  const reduced = useReducedMotion();
+  const { height: windowHeight } = useWindowDimensions();
+
+  // Mounted outlives `visible` by the length of the exit, so the sheet can leave on screen.
+  const [mounted, setMounted] = useState(visible);
+  // How far below its resting place the sheet sits (0 = open), and its measured height.
+  const offset = useSharedValue(windowHeight);
+  const height = useSharedValue(windowHeight);
+  const drag = useSharedValue(0);
+  // Reduced motion: the same open/close, as opacity only.
+  const fade = useSharedValue(0);
+
+  if (visible && !mounted) setMounted(true);
+
+  // The gesture is built once, so a parent's inline onClose does not rebuild it (and drop a drag)
+  // on every render: a flick only counts itself, and the effect below calls the latest onClose.
+  const flickCount = useSharedValue(0);
+  const [flicks, setFlicks] = useState(0);
+  const handledFlicks = useRef(0);
+  useEffect(() => {
+    if (flicks === handledFlicks.current) return;
+    handledFlicks.current = flicks;
+    onClose();
+  }, [flicks, onClose]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (visible) {
+      if (reduced) {
+        offset.set(0);
+        fade.set(withTiming(1, FADE));
+      } else {
+        fade.set(1);
+        offset.set(withTiming(0, { duration: OPEN_MS, easing: EASE_SHEET }));
+      }
+      return;
+    }
+    const done = (finished?: boolean) => {
+      'worklet';
+      if (finished) scheduleOnRN(setMounted, false);
+    };
+    if (reduced) fade.set(withTiming(0, FADE, done));
+    else offset.set(withTiming(height.get(), { duration: CLOSE_MS, easing: EASE_SHEET }, done));
+  }, [visible, mounted, reduced, offset, fade, height]);
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!reduced)
+        .activeOffsetY([-10, 10])
+        .failOffsetX([-20, 20])
+        .onStart(() => {
+          // Grabbed mid-flight: carry on from where the eye last saw it.
+          cancelAnimation(offset);
+          drag.set(offset.get());
+        })
+        .onUpdate((e) => {
+          const next = drag.get() + e.translationY;
+          offset.set(next >= 0 ? next : rubberband(next, height.get()));
+        })
+        .onEnd((e) => {
+          const projected = offset.get() + project(e.velocityY);
+          if (projected > height.get() * 0.4) {
+            offset.set(
+              withSpring(height.get(), {
+                duration: 300,
+                dampingRatio: 1,
+                velocity: e.velocityY,
+                overshootClamping: true,
+              }),
+            );
+            const n = flickCount.get() + 1;
+            flickCount.set(n);
+            scheduleOnRN(setFlicks, n);
+          } else {
+            offset.set(withSpring(0, { duration: 300, dampingRatio: 0.8, velocity: e.velocityY }));
+            if (offset.get() > 24) scheduleOnRN(haptic.light);
+          }
+        }),
+    [reduced, offset, drag, height, flickCount],
+  );
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: fade.get() * interpolate(offset.get(), [0, height.get()], [1, 0], Extrapolation.CLAMP),
+  }));
+  const sheetStyle = useAnimatedStyle(() => ({
+    opacity: fade.get(),
+    transform: [{ translateY: offset.get() }],
+  }));
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable
-          style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay }]}
-          onPress={onClose}
-          accessibilityLabel={t('Închide', 'Close')}
-        />
-        <View style={styles.spacer} pointerEvents="box-none" />
-        <View
-          style={[
-            styles.sheet,
-            fullHeight && { height: '90%' },
-            { backgroundColor: c.background, paddingBottom: insets.bottom + space.md },
-          ]}>
-          <View style={[styles.grabber, { backgroundColor: c.faint }]} />
-          {title ? (
-            <View style={styles.header}>
-              <Txt variant="title" style={styles.headerTitle} numberOfLines={1}>
-                {title}
-              </Txt>
-              <Pressable
-                onPress={onClose}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={t('Închide', 'Close')}
-                style={({ pressed }) => [styles.close, { backgroundColor: c.fill, opacity: pressed ? 0.6 : 1 }]}>
-                <Ionicons name="close" size={18} color={c.muted} />
-              </Pressable>
-            </View>
-          ) : (
-            <View style={{ height: space.md }} />
-          )}
-          {children}
-        </View>
-      </KeyboardAvoidingView>
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      {/* Inside a Modal, Android needs its own gesture root. */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay }, backdropStyle]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel={t('Închide', 'Close')} />
+          </Animated.View>
+          <View style={styles.spacer} pointerEvents="box-none" />
+          <Animated.View
+            onLayout={(e) => height.set(e.nativeEvent.layout.height)}
+            style={[
+              styles.sheet,
+              fullHeight && { height: '90%' },
+              { backgroundColor: c.background, paddingBottom: insets.bottom + space.md },
+              sheetStyle,
+            ]}>
+            <GestureDetector gesture={pan}>
+              <View collapsable={false}>
+                <View style={styles.grabberArea}>
+                  <View style={[styles.grabber, { backgroundColor: c.faint }]} />
+                </View>
+                {title ? (
+                  <View style={styles.header}>
+                    <Txt variant="title" style={styles.headerTitle} numberOfLines={1}>
+                      {title}
+                    </Txt>
+                    <Pressable
+                      onPress={onClose}
+                      hitSlop={10}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('Închide', 'Close')}
+                      style={({ pressed }) => [styles.close, { backgroundColor: c.fill, opacity: pressed ? 0.6 : 1 }]}>
+                      <Ionicons name="close" size={18} color={c.muted} />
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={{ height: space.md }} />
+                )}
+              </View>
+            </GestureDetector>
+            {children}
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
@@ -99,8 +248,9 @@ export function ActionSheet({
             <Pressable
               onPress={() => {
                 onClose();
-                // Let the sheet close before the action opens anything else.
-                setTimeout(a.onPress, Platform.OS === 'ios' ? 350 : 0);
+                // Let the sheet finish leaving before the action opens anything else (iOS shows
+                // one modal at a time).
+                setTimeout(a.onPress, Platform.OS === 'ios' ? CLOSE_MS + 120 : 0);
               }}
               style={({ pressed }) => [styles.action, pressed && { backgroundColor: c.surfaceAlt }]}>
               {a.icon ? (
@@ -210,7 +360,9 @@ export function PickerSheet<T>({
 const styles = StyleSheet.create({
   spacer: { flex: 1 },
   sheet: { borderTopLeftRadius: radius.xl + 6, borderTopRightRadius: radius.xl + 6, maxHeight: '94%' },
-  grabber: { width: 36, height: 5, borderRadius: 3, alignSelf: 'center', marginTop: 6, opacity: 0.5 },
+  // The visible grabber is small; the area that catches the drag is not.
+  grabberArea: { paddingTop: 6, paddingBottom: 2, alignItems: 'center' },
+  grabber: { width: 36, height: 5, borderRadius: 3, opacity: 0.5 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
