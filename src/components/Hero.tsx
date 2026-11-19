@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     padding: space.lg + 4,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.12)',
-    boxShadow: '0px 24px 48px -24px rgba(7, 15, 28, 0.7)',
+    boxShadow: navy.shadow,
   },
   balanceLabel: {
     color: navy.onNavyMuted,

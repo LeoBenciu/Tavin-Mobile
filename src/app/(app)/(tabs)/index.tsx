@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg + 2,
     padding: space.lg + 2,
     gap: space.lg - 2,
-    boxShadow: '0px 24px 48px -24px rgba(7, 15, 28, 0.7)',
+    boxShadow: navy.shadow,
   },
   moneyTop: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   moneyLabel: {
