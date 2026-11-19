@@ -67,7 +67,7 @@ export default function AccountantScreen() {
         scaleTo={0.98}
         accessibilityRole="button"
         accessibilityLabel={t(`Mesaje cu ${firmName}`, `Messages with ${firmName}`)}
-        style={[styles.contact, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+        style={styles.contact}>
         <Avatar text={initials(firmName || 'T')} size={44} />
         <View style={{ flex: 1, gap: 1 }}>
           <Txt weight="700" numberOfLines={1}>
@@ -239,8 +239,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    padding: space.md + 2,
-    borderRadius: 20,
+    paddingVertical: space.md + 2,
+    paddingHorizontal: space.lg,
   },
   label: { marginTop: space.xl, marginBottom: space.sm, marginLeft: 2 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },

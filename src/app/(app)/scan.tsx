@@ -150,7 +150,6 @@ export default function ScanScreen() {
 }
 
 function PickStep({ onPhoto, onGallery, onFile }: { onPhoto: () => void; onGallery: () => void; onFile: () => void }) {
-  const c = useColors();
   const t = useT();
   return (
     <Screen>
@@ -173,7 +172,7 @@ function PickStep({ onPhoto, onGallery, onFile }: { onPhoto: () => void; onGalle
         <Option icon="document-attach" title={t('PDF / fișier', 'PDF / file')} onPress={onFile} />
       </View>
 
-      <View style={[styles.tip, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+      <View style={[styles.tip]}>
         <IconTile icon="bulb" tone="accent" size={30} />
         <Txt variant="small" tone="soft" style={{ flex: 1 }}>
           {t(
@@ -226,7 +225,7 @@ function ReviewStep({
       }>
       <Stack.Screen options={{ title: t('Verifică', 'Check') }} />
       {selected ? (
-        <View style={[styles.preview, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+        <View style={[styles.preview, { backgroundColor: c.chip }]}>
           {selected.mimeType.startsWith('image/') ? (
             <Image
               source={{ uri: selected.uri }}
@@ -442,7 +441,7 @@ function Option({
       onPress={onPress}
       scaleTo={0.96}
       accessibilityRole="button"
-      style={[styles.option, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+      style={[styles.option, { backgroundColor: c.chip }]}>
       <IconTile icon={icon} tone="accent" size={44} />
       <Txt weight="600" style={{ textAlign: 'center' }}>
         {title}
@@ -482,9 +481,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
-    padding: space.md + 2,
-    borderRadius: radius.lg,
-    marginTop: space.lg,
+    paddingHorizontal: space.lg,
+    marginTop: space.xl,
   },
   footerRow: { flexDirection: 'row', gap: space.sm },
   preview: { height: 380, borderRadius: radius.lg, overflow: 'hidden' },

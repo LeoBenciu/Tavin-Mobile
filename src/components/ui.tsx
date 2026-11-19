@@ -189,6 +189,10 @@ export function Tap({
 
 // ── Surfaces ──
 
+/**
+ * A group of content on the page: padding and rounded corners for pressed rows, but no fill
+ * or shadow. On the white ground, space and section titles set groups apart.
+ */
 export function Card({
   children,
   style,
@@ -200,10 +204,8 @@ export function Card({
   onPress?: () => void;
   padded?: boolean;
 }) {
-  const c = useColors();
   const base = [
     styles.card,
-    { backgroundColor: c.surface, boxShadow: c.cardShadow },
     padded && styles.cardPadded,
     style,
   ];
@@ -557,7 +559,7 @@ export function ActionTile({
           styles.actionIcon,
           variant === 'solid' && [tileGradient('accent'), { boxShadow: accentGlow }],
           glass && { backgroundColor: navy.glassStrong, borderColor: navy.glassLine, borderWidth: 1 },
-          variant === 'plain' && { backgroundColor: c.surface, boxShadow: c.cardShadow },
+          variant === 'plain' && { backgroundColor: c.chip },
         ]}>
         {loading ? (
           <ActivityIndicator color={variant === 'plain' ? c.accentText : '#FFFFFF'} />
