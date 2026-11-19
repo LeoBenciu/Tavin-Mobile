@@ -19,9 +19,10 @@ export const WEB_APP_URL = 'https://tavin.eu';
  * Legal and support pages. Keep these identical to the Privacy Policy and Support
  * URLs in App Store Connect / Play Console; a dead link here is a review rejection.
  */
-export const PRIVACY_URL = `${WEB_APP_URL}/privacy`;
-export const TERMS_URL = `${WEB_APP_URL}/terms`;
-export const SUPPORT_URL = `${WEB_APP_URL}/contact`;
+export const PRIVACY_URL = `${WEB_APP_URL}/privacy-policy/`;
+export const TERMS_URL = `${WEB_APP_URL}/terms-of-service/`;
+/** Contact, app help and the account-deletion steps (also Play Console's deletion URL). */
+export const SUPPORT_URL = `${WEB_APP_URL}/suport/`;
 
 /** "1.10.0" > "1.9.3" — numeric, segment by segment. */
 export function compareVersions(a: string, b: string): number {

@@ -181,8 +181,8 @@ export default function SettingsScreen() {
         await deleteAccount({ currentPassword: deletePassword }).unwrap();
       } catch (e) {
         const status = (e as { status?: unknown })?.status;
-        // A server without self-service deletion yet: the request goes to the accountant,
-        // who administers this login, as a message they must act on.
+        // An API older than DELETE /client-portal/account: the request goes to the
+        // accountant, who administers this login, as a message they must act on.
         if (status !== 404 && status !== 405) throw e;
         const accountingClientId = profile?.accountingClientId;
         if (!accountingClientId) throw e;
