@@ -23,7 +23,7 @@ import {
 import { useT } from '@/i18n';
 import { efacturaStatus, invoiceNumber, invoiceStatus, invoiceTypeLabel, isEfacturaDocument } from '@/lib/domain';
 import { formatDate, formatMoney, formatMoneyShort } from '@/lib/format';
-import { radius, space, useColors } from '@/theme';
+import { column, radius, space, useColors } from '@/theme';
 
 const PAGE = 30;
 
@@ -276,7 +276,7 @@ export default function InvoicesScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: { paddingHorizontal: space.lg, paddingTop: NAV_BAR_HEIGHT },
+  list: { ...column, paddingHorizontal: space.lg, paddingTop: NAV_BAR_HEIGHT },
   // A horizontal ScrollView must not grow vertically inside the page column.
   chipScroll: { flexGrow: 0, marginHorizontal: -space.lg },
   chips: { gap: space.sm, paddingVertical: space.md, paddingHorizontal: space.lg },

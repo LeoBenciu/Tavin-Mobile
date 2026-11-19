@@ -128,6 +128,13 @@ export type Tone = 'neutral' | 'accent' | 'good' | 'warn' | 'danger' | 'urgent';
 export type TileTone = Tone | 'sky' | 'violet' | 'slate';
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+
+/**
+ * Widest a column of content gets. On iPad (and resized iPad windows) pages stay a
+ * readable column centred on screen instead of stretching edge to edge.
+ */
+export const CONTENT_MAX_WIDTH = 720;
+export const column = { width: '100%', maxWidth: CONTENT_MAX_WIDTH, alignSelf: 'center' } as const;
 export const radius = { sm: 10, md: 14, lg: 20, xl: 28, pill: 999 } as const;
 export const font = {
   caption: 12,

@@ -359,7 +359,15 @@ export function PickerSheet<T>({
 
 const styles = StyleSheet.create({
   spacer: { flex: 1 },
-  sheet: { borderTopLeftRadius: radius.xl + 6, borderTopRightRadius: radius.xl + 6, maxHeight: '94%' },
+  sheet: {
+    borderTopLeftRadius: radius.xl + 6,
+    borderTopRightRadius: radius.xl + 6,
+    maxHeight: '94%',
+    // On iPad a sheet is a centred card-width panel, not a full-width slab.
+    width: '100%',
+    maxWidth: 640,
+    alignSelf: 'center',
+  },
   // The visible grabber is small; the area that catches the drag is not.
   grabberArea: { paddingTop: 6, paddingBottom: 2, alignItems: 'center' },
   grabber: { width: 36, height: 5, borderRadius: 3, opacity: 0.5 },

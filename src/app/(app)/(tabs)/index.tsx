@@ -36,7 +36,7 @@ import {
 import { useT, type Translate } from '@/i18n';
 import { documentTypeLabel } from '@/lib/domain';
 import { daysUntil, formatDate, formatMoney, formatMoneyShort, initials } from '@/lib/format';
-import { gradient, navy, radius, space, useColors } from '@/theme';
+import { column, gradient, navy, radius, space, useColors } from '@/theme';
 
 function greeting(t: Translate): string {
   const h = new Date().getHours();
@@ -453,7 +453,7 @@ function MonthCard({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: space.lg, flexGrow: 1 },
+  content: { ...column, paddingHorizontal: space.lg, flexGrow: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md, minHeight: 48 },
   company: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   companyText: { fontSize: 15, fontWeight: '700', letterSpacing: -0.2 },

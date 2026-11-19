@@ -156,6 +156,9 @@ const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 14 },
   fade: { position: 'absolute', left: 0, right: 0, bottom: 0, top: -GAP_ABOVE - 8 },
   pill: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
     height: PILL_HEIGHT,
     borderRadius: PILL_HEIGHT / 2,
     flexDirection: 'row',
