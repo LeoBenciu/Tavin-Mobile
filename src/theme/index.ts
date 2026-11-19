@@ -97,22 +97,28 @@ const dark: typeof light = {
   floatShadow: '0px 0px 0px 0.5px rgba(255, 255, 255, 0.08), 0px 18px 40px -12px rgba(0, 0, 0, 0.7)',
 };
 
-/** The landing page's hero and dark bands: the same in light and dark mode. */
+/**
+ * The navy grounds (balance, sign-in, lock screen): the web's --tv-navy (#22346f, the navy pulled
+ * towards the primary indigo, as on the portal sidebar) with a soft indigo glow from the top.
+ * The same in light and dark mode. Text colours keep ≥4.5:1 on it.
+ */
 export const navy = {
   ink: '#101F32',
-  deep: '#0B1726',
-  night: '#070F1C',
-  indigoLight: '#A8B5FF',
+  deep: '#22346F',
+  night: '#1B2A5C',
+  indigoLight: '#C3CBFF',
   onNavy: '#FFFFFF',
-  onNavySoft: '#C5CDD9',
-  onNavyMuted: '#8A97AB',
+  onNavySoft: '#D3DAF5',
+  onNavyMuted: '#9FAAD6',
   glass: 'rgba(255, 255, 255, 0.08)',
   glassStrong: 'rgba(255, 255, 255, 0.14)',
   glassLine: 'rgba(255, 255, 255, 0.14)',
-  /** radial-gradient(120% 80% at 50% 0%, #142a4f, deep 45%, night) from .lp-hero */
-  hero: 'radial-gradient(120% 90% at 50% 0%, #142A4F 0%, #0B1726 48%, #070F1C 100%)',
-  heroGlow: 'radial-gradient(60% 55% at 50% 0%, rgba(70, 95, 233, 0.5) 0%, rgba(70, 95, 233, 0) 70%)',
-  heroGlowSide: 'radial-gradient(45% 50% at 100% 100%, rgba(124, 92, 255, 0.22) 0%, rgba(124, 92, 255, 0) 70%)',
+  hero: 'linear-gradient(180deg, #22346F 0%, #22346F 100%)',
+  /** radial-gradient(80% 260px at 50% 0, rgba(124, 140, 255, 0.36), transparent 70%) from the sidebar */
+  heroGlow: 'radial-gradient(80% 60% at 50% 0%, rgba(124, 140, 255, 0.36) 0%, rgba(124, 140, 255, 0) 70%)',
+  heroGlowSide: 'radial-gradient(50% 60% at 100% 100%, rgba(91, 114, 255, 0.3) 0%, rgba(91, 114, 255, 0) 70%)',
+  /** The drop shadow under a navy panel, tinted like the web's bank card. */
+  shadow: '0px 18px 36px -18px rgba(34, 52, 111, 0.8)',
 } as const;
 
 export type Colors = typeof light;
