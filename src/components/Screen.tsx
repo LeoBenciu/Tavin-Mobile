@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { space, useColors } from '@/theme';
+import { column, space, useColors } from '@/theme';
 import { useTabBarSpace } from './TabBar';
 
 /**
@@ -51,7 +51,7 @@ export function Screen({
     <ScrollView
       style={{ flex: 1 }}
       contentInsetAdjustmentBehavior={autoInsets ? 'automatic' : 'never'}
-      contentContainerStyle={[styles.content, { paddingBottom: bottom }, contentStyle]}
+      contentContainerStyle={[styles.content, column, { paddingBottom: bottom }, contentStyle]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
       refreshControl={
@@ -62,7 +62,7 @@ export function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View style={[{ flex: 1 }, contentStyle]}>{children}</View>
+    <View style={[{ flex: 1 }, column, contentStyle]}>{children}</View>
   );
 
   const inner = (
@@ -74,7 +74,7 @@ export function Screen({
             styles.footer,
             { paddingBottom: insets.bottom + space.sm, backgroundColor: c.bar, borderTopColor: c.separator },
           ]}>
-          {footer}
+          <View style={[column, { gap: space.sm }]}>{footer}</View>
         </View>
       ) : null}
     </>

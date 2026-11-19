@@ -19,7 +19,7 @@ import { useT } from '@/i18n';
 import { notify } from '@/lib/confirm';
 import { formatRelative } from '@/lib/format';
 import { haptic } from '@/lib/haptics';
-import { gradient, space, useColors } from '@/theme';
+import { column, gradient, space, useColors } from '@/theme';
 
 /** Messages further apart than this start a new group (and show their time). */
 const GROUP_GAP_MS = 10 * 60_000;
@@ -220,7 +220,7 @@ export default function MessagesScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  list: { paddingHorizontal: space.lg, flexGrow: 1 },
+  list: { ...column, paddingHorizontal: space.lg, flexGrow: 1 },
   emptyWrap: { flex: 1, transform: [{ scaleY: -1 }] },
   bubbleRow: { maxWidth: '80%' },
   left: { alignSelf: 'flex-start' },

@@ -3,8 +3,10 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   useChangePasswordMutation,
+  useDeleteAccountMutation,
   useGetProfileQuery,
   useRegisterDeviceMutation,
+  useSendMessageMutation,
   useUnregisterDeviceMutation,
   useUpdateProfileMutation,
 } from '@/api/api';
@@ -28,7 +30,7 @@ import {
 } from '@/components/ui';
 import { getPushRegistration, isPushEnabledByUser, setPushEnabledByUser } from '@/features/push';
 import { useLanguage, useT } from '@/i18n';
-import { APP_VERSION, WEB_APP_URL } from '@/lib/config';
+import { APP_VERSION, PRIVACY_URL, SUPPORT_URL, TERMS_URL, WEB_APP_URL } from '@/lib/config';
 import { confirm, notify } from '@/lib/confirm';
 import { openUrl } from '@/lib/files';
 import { initials } from '@/lib/format';
@@ -46,6 +48,8 @@ export default function SettingsScreen() {
   const [changePassword, { isLoading: savingPassword }] = useChangePasswordMutation();
   const [registerDevice] = useRegisterDeviceMutation();
   const [unregisterDevice] = useUnregisterDeviceMutation();
+  const [deleteAccount] = useDeleteAccountMutation();
+  const [sendMessage] = useSendMessageMutation();
 
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometric, setBiometric] = useState(false);
@@ -61,6 +65,10 @@ export default function SettingsScreen() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [repeatPassword, setRepeatPassword] = useState('');
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     canUseBiometrics().then(setBiometricAvailable);
@@ -147,6 +155,62 @@ export default function SettingsScreen() {
       notify(t('Parola a fost schimbată', 'Password changed'));
     } catch (e) {
       notify(t('Nu am putut schimba parola', 'Couldn’t change the password'), errorMessage(e));
+    }
+  };
+
+  const removeAccount = async () => {
+    if (!deletePassword) {
+      notify(t('Introdu parola', 'Enter your password'));
+      return;
+    }
+    if (
+      !(await confirm(
+        t('Ștergi contul definitiv?', 'Delete your account for good?'),
+        t(
+          'Nu te vei mai putea conecta cu acest cont. Acțiunea nu poate fi anulată.',
+          'You won’t be able to sign in with this account again. This can’t be undone.',
+        ),
+        { confirmLabel: t('Șterge contul', 'Delete account'), destructive: true },
+      ))
+    )
+      return;
+    setDeleting(true);
+    try {
+      let requested = false;
+      try {
+        await deleteAccount({ currentPassword: deletePassword }).unwrap();
+      } catch (e) {
+        const status = (e as { status?: unknown })?.status;
+        // A server without self-service deletion yet: the request goes to the accountant,
+        // who administers this login, as a message they must act on.
+        if (status !== 404 && status !== 405) throw e;
+        const accountingClientId = profile?.accountingClientId;
+        if (!accountingClientId) throw e;
+        await sendMessage({
+          accountingClientId,
+          content: t(
+            `Cerere de ștergere a contului: vă rog să ștergeți contul Tavin al utilizatorului ${user.name} (${user.email}) și datele personale asociate. Cerere trimisă din aplicația mobilă.`,
+            `Account deletion request: please delete the Tavin account of ${user.name} (${user.email}) and the personal data linked to it. Sent from the mobile app.`,
+          ),
+        }).unwrap();
+        requested = true;
+      }
+      setDeleteOpen(false);
+      setDeletePassword('');
+      notify(
+        requested ? t('Cerere trimisă', 'Request sent') : t('Cont șters', 'Account deleted'),
+        requested
+          ? t(
+              'Contabilul tău a primit cererea de ștergere a contului. Te-am deconectat de pe acest telefon.',
+              'Your accountant has received your account deletion request. You’ve been signed out on this phone.',
+            )
+          : t('Contul tău a fost șters.', 'Your account has been deleted.'),
+      );
+      await signOut();
+    } catch (e) {
+      notify(t('Nu am putut șterge contul', 'Couldn’t delete the account'), errorMessage(e));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -254,6 +318,33 @@ export default function SettingsScreen() {
         />
       </Card>
 
+      <SectionTitle title={t('Ajutor și informații legale', 'Help & legal')} size="small" />
+      <Card padded={false}>
+        <ListRow
+          icon="help-buoy"
+          iconTone="good"
+          solid
+          title={t('Asistență', 'Support')}
+          onPress={() => openUrl(SUPPORT_URL)}
+        />
+        <Divider inset={60} />
+        <ListRow
+          icon="shield-checkmark"
+          iconTone="slate"
+          solid
+          title={t('Politica de confidențialitate', 'Privacy policy')}
+          onPress={() => openUrl(PRIVACY_URL)}
+        />
+        <Divider inset={60} />
+        <ListRow
+          icon="document-text"
+          iconTone="slate"
+          solid
+          title={t('Termeni și condiții', 'Terms of service')}
+          onPress={() => openUrl(TERMS_URL)}
+        />
+      </Card>
+
       <Card padded={false} style={{ marginTop: space.xl }}>
         <Pressable
           onPress={async () => {
@@ -273,6 +364,15 @@ export default function SettingsScreen() {
           </Txt>
         </Pressable>
       </Card>
+      <Pressable
+        onPress={() => setDeleteOpen(true)}
+        accessibilityRole="button"
+        hitSlop={8}
+        style={({ pressed }) => [styles.deleteLink, pressed && { opacity: 0.6 }]}>
+        <Txt variant="small" weight="600" tone="danger">
+          {t('Șterge contul', 'Delete account')}
+        </Txt>
+      </Pressable>
       <Txt variant="footnote" tone="faint" style={{ textAlign: 'center', marginTop: space.lg }}>
         Tavin {APP_VERSION}
       </Txt>
@@ -333,6 +433,36 @@ export default function SettingsScreen() {
           <Button title={t('Schimbă parola', 'Change password')} loading={savingPassword} onPress={savePassword} />
         </View>
       </Sheet>
+
+      <Sheet visible={deleteOpen} onClose={() => setDeleteOpen(false)} title={t('Șterge contul', 'Delete account')}>
+        <View style={{ paddingHorizontal: space.lg, gap: space.md }}>
+          <Txt tone="soft">
+            {t(
+              'Contul tău de utilizator și datele tale personale (nume, email, telefon, dispozitive) vor fi șterse și nu te vei mai putea conecta.',
+              'Your user account and personal data (name, email, phone, devices) will be deleted and you won’t be able to sign in again.',
+            )}
+          </Txt>
+          <Txt tone="soft">
+            {t(
+              `Documentele contabile ale firmei ${user.clientCompany.name} rămân la contabilul tău, care e obligat prin lege să le păstreze.`,
+              `${user.clientCompany.name}’s accounting records stay with your accountant, who is required by law to keep them.`,
+            )}
+          </Txt>
+          <Field
+            label={t('Parola actuală', 'Current password')}
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            secureTextEntry
+            autoComplete="current-password"
+          />
+          <Button
+            title={t('Șterge contul definitiv', 'Delete account permanently')}
+            variant="danger"
+            loading={deleting}
+            onPress={removeAccount}
+          />
+        </View>
+      </Sheet>
     </Screen>
   );
 }
@@ -348,4 +478,5 @@ const styles = StyleSheet.create({
     minHeight: 54,
   },
   signOut: { minHeight: 52, alignItems: 'center', justifyContent: 'center' },
+  deleteLink: { alignSelf: 'center', marginTop: space.lg, paddingVertical: space.sm, paddingHorizontal: space.md },
 });

@@ -81,6 +81,10 @@ export const api = createApi({
     changePassword: build.mutation<{ ok: true }, { currentPassword: string; newPassword: string }>({
       query: (body) => ({ url: '/client-portal/account/password', method: 'PATCH', body }),
     }),
+    /** Deletes the signed-in user's login. The firm's accounting records stay with the accountant. */
+    deleteAccount: build.mutation<{ ok: true }, { currentPassword: string }>({
+      query: (body) => ({ url: '/client-portal/account', method: 'DELETE', body }),
+    }),
     registerDevice: build.mutation<
       unknown,
       { pushToken: string; platform: 'ios' | 'android'; appVersion?: string; locale?: string; deviceName?: string }
@@ -431,6 +435,7 @@ export const {
   useGetProfileQuery,
   useUpdateProfileMutation,
   useChangePasswordMutation,
+  useDeleteAccountMutation,
   useRegisterDeviceMutation,
   useUnregisterDeviceMutation,
   useGetDashboardQuery,

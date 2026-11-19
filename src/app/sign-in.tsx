@@ -8,6 +8,8 @@ import { GlassChip, LogoMark, NavyBackdrop } from '@/components/Hero';
 import { Sheet } from '@/components/Sheet';
 import { Banner, Button, Field, Txt } from '@/components/ui';
 import { useLanguage, useT, type Language } from '@/i18n';
+import { PRIVACY_URL, SUPPORT_URL } from '@/lib/config';
+import { openUrl } from '@/lib/files';
 import { haptic } from '@/lib/haptics';
 import { navy, radius, space, useColors } from '@/theme';
 
@@ -114,6 +116,11 @@ export default function SignInScreen() {
                 {t('Nu ai cont sau ai uitat parola?', 'No account, or forgot your password?')}
               </Txt>
             </Pressable>
+            <Pressable onPress={() => openUrl(PRIVACY_URL)} style={styles.help} hitSlop={8}>
+              <Txt variant="footnote" tone="muted">
+                {t('Politica de confidențialitate', 'Privacy policy')}
+              </Txt>
+            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -132,6 +139,7 @@ export default function SignInScreen() {
               'If you forgot your password, ask your accountant to resend your invitation.',
             )}
           </Txt>
+          <Button title={t('Contactează asistența', 'Contact support')} variant="ghost" onPress={() => openUrl(SUPPORT_URL)} />
           <Button title={t('Am înțeles', 'Got it')} variant="secondary" onPress={() => setHelpOpen(false)} />
         </View>
       </Sheet>
