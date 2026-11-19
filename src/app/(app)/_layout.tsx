@@ -71,6 +71,8 @@ export default function AppLayout() {
           headerShadowVisible: false,
           headerBackButtonDisplayMode: 'minimal',
           contentStyle: { backgroundColor: c.background },
+          // Swipe back from anywhere on the screen, not just the edge (iOS 26 does this by default; older iOS needs it).
+          fullScreenGestureEnabled: true,
         }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="scan" options={{ title: t('Încarcă documente', 'Upload documents'), ...modal }} />
