@@ -208,7 +208,7 @@ export default function HomeScreen() {
                 onPress={() => router.push('/accountant')}
                 scaleTo={0.98}
                 accessibilityRole="button"
-                style={[styles.moreRow, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+                style={styles.moreRow}>
                 <Pill label={`+${more}`} tone="accent" />
                 <Txt variant="small" weight="600" style={{ flex: 1 }} numberOfLines={1}>
                   {more === 1
@@ -345,14 +345,14 @@ export default function HomeScreen() {
   );
 }
 
-/** One figure on the navy card (in the balance's currency): a glass tile that opens the screen behind it. */
+/** One figure under the balance (in the balance's currency), as plain text that opens the screen behind it. */
 function GlassStat({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${label}: ${value}`}
-      style={({ pressed }) => [styles.glass, pressed && { backgroundColor: navy.glassStrong }]}>
+      style={({ pressed }) => [styles.glass, pressed && { opacity: 0.6 }]}>
       <Text style={styles.glassLabel} numberOfLines={1}>
         {label}
       </Text>
@@ -420,7 +420,7 @@ function MonthCard({
         </Txt>
       </View>
       {bar(expenses, 'linear-gradient(90deg, #465FE9, #7C8CFF)', c.chart)}
-      <View style={[styles.result, { backgroundColor: profit >= 0 ? c.goodSoft : c.dangerSoft }]}>
+      <View style={styles.result}>
         <Txt variant="small" weight="600" tone={profit >= 0 ? 'good' : 'danger'}>
           {profit >= 0 ? t('Profit', 'Profit') : t('Pierdere', 'Loss')}
         </Txt>
@@ -462,13 +462,11 @@ const styles = StyleSheet.create({
   todoTitle: { marginTop: space.md, marginBottom: 2 },
   todoAction: { marginTop: space.lg },
   moreRow: {
-    marginTop: space.sm + 2,
     minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.sm + 2,
-    paddingHorizontal: space.md + 2,
-    borderRadius: radius.lg,
+    paddingHorizontal: space.lg,
   },
   clear: {
     marginTop: space.lg,
@@ -503,8 +501,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: navy.glass,
   },
-  glassRow: { flexDirection: 'row', gap: space.sm },
-  glass: { flex: 1, minHeight: 58, gap: 4, padding: space.md, borderRadius: radius.md, backgroundColor: navy.glass },
+  glassRow: { flexDirection: 'row', gap: space.lg },
+  glass: { flex: 1, minHeight: 44, gap: 2, justifyContent: 'center' },
   glassLabel: { color: navy.onNavySoft, fontSize: 12 },
   glassValue: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', fontVariant: ['tabular-nums'] },
   monthHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: space.md },
@@ -518,9 +516,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: space.md,
-    paddingVertical: 10,
-    borderRadius: radius.md,
   },
   footer: { textAlign: 'center', marginTop: space.xl },
 });

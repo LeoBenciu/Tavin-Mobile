@@ -4,13 +4,13 @@ import { Platform, useColorScheme, type ViewStyle } from 'react-native';
  * Tavin's palette, the same as the web app's (client/src/tavin-tokens.css): coral is the
  * one main action on a screen and what is urgent (the text on it is navy, never white);
  * indigo is links, selection and "in progress"; navy the dark grounds; green / amber / red
- * strictly semantic. Surfaces follow iOS: a grouped background with white (or navy) cells.
+ * strictly semantic. Light mode is one white ground: blocks are set apart by space, not by
+ * cards and shadows, and only the main figure on a screen gets a panel of its own.
  */
 const light = {
-  /** iOS grouped background, tinted towards the landing page's ground. */
-  background: '#F6F7FB',
+  background: '#FFFFFF',
   /** The background at zero alpha, for fades into it. */
-  backgroundClear: 'rgba(246, 247, 251, 0)',
+  backgroundClear: 'rgba(255, 255, 255, 0)',
   surface: '#FFFFFF',
   /** Highlighted (pressed) cell. */
   surfaceAlt: '#ECEEF4',
@@ -48,13 +48,12 @@ const light = {
   onAccent: '#FFFFFF',
   overlay: 'rgba(7, 15, 28, 0.42)',
   /** Navigation bar and pinned footers. Opaque: without a blur, see-through bars just look muddy. */
-  bar: '#F8F9FC',
+  bar: '#FFFFFF',
   /** The floating tab bar capsule. */
   tabBar: '#FFFFFF',
   /** Single-series chart fill (validated ≥3:1 on surface). */
   chart: '#465FE9',
   chartRest: '#D9DEFB',
-  cardShadow: '0px 1px 2px rgba(16, 31, 50, 0.05), 0px 10px 24px -14px rgba(16, 31, 50, 0.22)',
   floatShadow: '0px 1px 2px rgba(16, 31, 50, 0.06), 0px 18px 40px -16px rgba(16, 31, 50, 0.32)',
 };
 
@@ -95,7 +94,6 @@ const dark: typeof light = {
   tabBar: '#132036',
   chart: '#6B80F0',
   chartRest: 'rgba(107, 128, 240, 0.28)',
-  cardShadow: '0px 0px 0px 0.5px rgba(255, 255, 255, 0.06)',
   floatShadow: '0px 0px 0px 0.5px rgba(255, 255, 255, 0.08), 0px 18px 40px -12px rgba(0, 0, 0, 0.7)',
 };
 

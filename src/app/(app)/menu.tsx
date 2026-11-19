@@ -117,7 +117,7 @@ export default function MenuScreen() {
       <Tap
         onPress={() => router.push('/settings')}
         scaleTo={0.98}
-        style={[styles.profile, { backgroundColor: c.surface, boxShadow: c.cardShadow }]}>
+        style={styles.profile}>
         <Avatar text={initials(user.clientCompany.name)} size={52} />
         <View style={{ flex: 1, gap: 1 }}>
           <Txt variant="title" weight="700" numberOfLines={1}>
@@ -164,6 +164,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: space.md + 2,
     padding: space.lg,
-    borderRadius: 20,
   },
 });
