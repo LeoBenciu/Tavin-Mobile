@@ -159,7 +159,7 @@ export default function MessagesScreen() {
                             gradient('linear-gradient(160deg, #5C74F5, #465FE9)'),
                             endsGroup ? styles.tailRight : null,
                           ]
-                        : [{ backgroundColor: c.surface, boxShadow: c.cardShadow }, endsGroup ? styles.tailLeft : null],
+                        : [{ backgroundColor: c.chip }, endsGroup ? styles.tailLeft : null],
                     ]}>
                     <Txt tone={mine ? 'onAccent' : 'default'} style={styles.bubbleText}>
                       {item.content}
